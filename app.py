@@ -8,7 +8,7 @@ from linebot.models import (
     CarouselTemplate, CarouselColumn, URIAction,
     FlexSendMessage, BubbleContainer, BoxComponent, TextComponent,
     ButtonComponent, SeparatorComponent, IconComponent, ImageCarouselTemplate,
-    ImageCarouselColumn, ConfirmTemplate, MessageAction
+    ImageCarouselColumn, ConfirmTemplate, MessageAction, ImageComponent
 )
 import os
 from dotenv import load_dotenv
@@ -33,45 +33,45 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 完整菜單數據
+# 完整菜單數據 - 使用本地圖片或公開圖片URL
 MENU = {
     "recommended": {
         "id": "recommended",
         "name": "推薦餐點",
         "items": {
-            "1號餐": {"name": "1號餐", "price": 120, "desc": "漢堡+薯條+可樂", "image": "https://example.com/combo1.jpg"},
-            "2號餐": {"name": "2號餐", "price": 150, "desc": "雙層漢堡+薯條+紅茶", "image": "https://example.com/combo2.jpg"},
-            "3號餐": {"name": "3號餐", "price": 180, "desc": "雞腿堡+雞塊+雪碧", "image": "https://example.com/combo3.jpg"}
+            "1號餐": {"name": "1號餐", "price": 120, "desc": "漢堡+薯條+可樂", "image": "https://via.placeholder.com/300x200/FF6B6B/FFFFFF?text=1號餐"},
+            "2號餐": {"name": "2號餐", "price": 150, "desc": "雙層漢堡+薯條+紅茶", "image": "https://via.placeholder.com/300x200/4ECDC4/FFFFFF?text=2號餐"},
+            "3號餐": {"name": "3號餐", "price": 180, "desc": "雞腿堡+雞塊+雪碧", "image": "https://via.placeholder.com/300x200/45B7D1/FFFFFF?text=3號餐"}
         }
     },
     "main": {
         "id": "main",
         "name": "主餐",
         "items": {
-            "經典漢堡": {"name": "經典漢堡", "price": 70, "desc": "100%純牛肉", "image": "https://example.com/burger.jpg"},
-            "雙層起司堡": {"name": "雙層起司堡", "price": 90, "desc": "雙倍起司雙倍滿足", "image": "https://example.com/double-cheese.jpg"},
-            "照燒雞腿堡": {"name": "照燒雞腿堡", "price": 85, "desc": "鮮嫩多汁的雞腿肉", "image": "https://example.com/chicken.jpg"},
-            "素食蔬菜堡": {"name": "素食蔬菜堡", "price": 75, "desc": "健康素食選擇", "image": "https://example.com/veggie.jpg"}
+            "經典漢堡": {"name": "經典漢堡", "price": 70, "desc": "100%純牛肉", "image": "https://via.placeholder.com/300x200/FF6B6B/FFFFFF?text=經典漢堡"},
+            "雙層起司堡": {"name": "雙層起司堡", "price": 90, "desc": "雙倍起司雙倍滿足", "image": "https://via.placeholder.com/300x200/4ECDC4/FFFFFF?text=雙層起司堡"},
+            "照燒雞腿堡": {"name": "照燒雞腿堡", "price": 85, "desc": "鮮嫩多汁的雞腿肉", "image": "https://via.placeholder.com/300x200/45B7D1/FFFFFF?text=照燒雞腿堡"},
+            "素食蔬菜堡": {"name": "素食蔬菜堡", "price": 75, "desc": "健康素食選擇", "image": "https://via.placeholder.com/300x200/96CEB4/FFFFFF?text=素食蔬菜堡"}
         }
     },
     "side": {
         "id": "side",
         "name": "副餐",
         "items": {
-            "薯條": {"name": "薯條", "price": 50, "desc": "金黃酥脆", "image": "https://example.com/fries.jpg"},
-            "洋蔥圈": {"name": "洋蔥圈", "price": 60, "desc": "香脆可口", "image": "https://example.com/onion-rings.jpg"},
-            "雞塊": {"name": "雞塊", "price": 65, "desc": "6塊裝", "image": "https://example.com/nuggets.jpg"},
-            "沙拉": {"name": "沙拉", "price": 70, "desc": "新鮮蔬菜", "image": "https://example.com/salad.jpg"}
+            "薯條": {"name": "薯條", "price": 50, "desc": "金黃酥脆", "image": "https://via.placeholder.com/300x200/FF6B6B/FFFFFF?text=薯條"},
+            "洋蔥圈": {"name": "洋蔥圈", "price": 60, "desc": "香脆可口", "image": "https://via.placeholder.com/300x200/4ECDC4/FFFFFF?text=洋蔥圈"},
+            "雞塊": {"name": "雞塊", "price": 65, "desc": "6塊裝", "image": "https://via.placeholder.com/300x200/45B7D1/FFFFFF?text=雞塊"},
+            "沙拉": {"name": "沙拉", "price": 70, "desc": "新鮮蔬菜", "image": "https://via.placeholder.com/300x200/96CEB4/FFFFFF?text=沙拉"}
         }
     },
     "drink": {
         "id": "drink",
         "name": "飲料",
         "items": {
-            "可樂": {"name": "可樂", "price": 30, "desc": "冰涼暢快", "image": "https://example.com/cola.jpg"},
-            "雪碧": {"name": "雪碧", "price": 30, "desc": "清爽解渴", "image": "https://example.com/sprite.jpg"},
-            "紅茶": {"name": "紅茶", "price": 25, "desc": "香醇濃郁", "image": "https://example.com/tea.jpg"},
-            "咖啡": {"name": "咖啡", "price": 40, "desc": "現煮咖啡", "image": "https://example.com/coffee.jpg"}
+            "可樂": {"name": "可樂", "price": 30, "desc": "冰涼暢快", "image": "https://via.placeholder.com/300x200/FF6B6B/FFFFFF?text=可樂"},
+            "雪碧": {"name": "雪碧", "price": 30, "desc": "清爽解渴", "image": "https://via.placeholder.com/300x200/4ECDC4/FFFFFF?text=雪碧"},
+            "紅茶": {"name": "紅茶", "price": 25, "desc": "香醇濃郁", "image": "https://via.placeholder.com/300x200/45B7D1/FFFFFF?text=紅茶"},
+            "咖啡": {"name": "咖啡", "price": 40, "desc": "現煮咖啡", "image": "https://via.placeholder.com/300x200/96CEB4/FFFFFF?text=咖啡"}
         }
     }
 }
@@ -109,10 +109,10 @@ def create_categories_menu():
     columns = []
     
     categories = [
-        {"id": "recommended", "name": "推薦餐點", "image": "https://example.com/combo.jpg"},
-        {"id": "main", "name": "主餐", "image": "https://example.com/main.jpg"},
-        {"id": "side", "name": "副餐", "image": "https://example.com/side.jpg"},
-        {"id": "drink", "name": "飲料", "image": "https://example.com/drink.jpg"}
+        {"id": "recommended", "name": "推薦餐點", "image": "https://via.placeholder.com/1024x1024/FF6B6B/FFFFFF?text=推薦餐點"},
+        {"id": "main", "name": "主餐", "image": "https://via.placeholder.com/1024x1024/4ECDC4/FFFFFF?text=主餐"},
+        {"id": "side", "name": "副餐", "image": "https://via.placeholder.com/1024x1024/45B7D1/FFFFFF?text=副餐"},
+        {"id": "drink", "name": "飲料", "image": "https://via.placeholder.com/1024x1024/96CEB4/FFFFFF?text=飲料"}
     ]
     
     for category in categories:
@@ -130,87 +130,80 @@ def create_categories_menu():
         template=ImageCarouselTemplate(columns=columns)
     )
 
-# 創建分類菜單
+# 創建分類菜單 - 修復版本
 def create_menu_template(category_id):
     if category_id not in MENU:
         return None
         
     category = MENU[category_id]
-    columns = []
+    bubbles = []
     
-    # 將商品分組，每組最多10個
-    items = list(category["items"].values())
-    for i in range(0, len(items), 10):
-        category_items = items[i:i+10]
-        
-        bubbles = []
-        for item in category_items:
-            bubble = BubbleContainer(
-                size="micro",
-                hero=BoxComponent(
-                    layout="vertical",
-                    contents=[
-                        ImageComponent(
-                            url=item["image"],
-                            size="full",
-                            aspect_mode="cover",
-                            aspect_ratio="1:1"
+    for item_name, item_data in category["items"].items():
+        bubble = BubbleContainer(
+            size="micro",
+            hero=ImageComponent(
+                url=item_data["image"],
+                size="full",
+                aspect_mode="cover",
+                aspect_ratio="1:1"
+            ),
+            body=BoxComponent(
+                layout="vertical",
+                contents=[
+                    TextComponent(
+                        text=item_data["name"],
+                        weight="bold",
+                        size="sm",
+                        wrap=True
+                    ),
+                    TextComponent(
+                        text=item_data["desc"],
+                        size="xs",
+                        color="#999999",
+                        wrap=True
+                    ),
+                    TextComponent(
+                        text=f"${item_data['price']}",
+                        size="sm",
+                        weight="bold",
+                        color="#ff6b6b"
+                    )
+                ],
+                spacing="sm",
+                paddingAll="10px"
+            ),
+            footer=BoxComponent(
+                layout="vertical",
+                contents=[
+                    ButtonComponent(
+                        style="primary",
+                        color="#ff6b6b",
+                        height="sm",
+                        action=PostbackAction(
+                            label="加入購物車",
+                            data=f"action=add_to_cart&category={category_id}&item={item_name}"
                         )
-                    ]
-                ),
-                body=BoxComponent(
-                    layout="vertical",
-                    contents=[
-                        TextComponent(
-                            text=item["name"],
-                            weight="bold",
-                            size="sm",
-                            wrap=True
-                        ),
-                        TextComponent(
-                            text=item["desc"],
-                            size="xs",
-                            color="#999999",
-                            wrap=True
-                        ),
-                        TextComponent(
-                            text=f"${item['price']}",
-                            size="sm",
-                            weight="bold",
-                            color="#ff6b6b"
-                        )
-                    ],
-                    spacing="sm",
-                    paddingAll="10px"
-                ),
-                footer=BoxComponent(
-                    layout="vertical",
-                    contents=[
-                        ButtonComponent(
-                            style="primary",
-                            color="#ff6b6b",
-                            height="sm",
-                            action=PostbackAction(
-                                label="加入購物車",
-                                data=f"action=add_to_cart&category={category_id}&item={item['name']}"
-                            )
-                        )
-                    ]
-                )
+                    )
+                ]
             )
-            bubbles.append(bubble)
+        )
+        bubbles.append(bubble)
+    
+    # 將商品分成每10個一組 (LINE限制)
+    flex_messages = []
+    for i in range(0, len(bubbles), 10):
+        carousel = {
+            "type": "carousel",
+            "contents": bubbles[i:i+10]
+        }
         
-        # 創建Flex訊息
         flex_message = FlexSendMessage(
             alt_text=f"{category['name']} 菜單",
-            contents={
-                "type": "carousel",
-                "contents": bubbles
-            }
+            contents=carousel
         )
-        columns.append(flex_message)
+        flex_messages.append(flex_message)
     
-    return columns
+    return flex_messages
 
 # 查看購物車
 def view_cart(user_id):
@@ -495,7 +488,13 @@ def handle_postback(event):
         category_id = data_dict.get('category', '')
         menu_messages = create_menu_template(category_id)
         if menu_messages:
-            line_bot_api.reply_message(event.reply_token, menu_messages)
+            # 如果有多個Flex訊息，需要逐個發送
+            if len(menu_messages) > 1:
+                line_bot_api.reply_message(event.reply_token, menu_messages[0])
+                for msg in menu_messages[1:]:
+                    line_bot_api.push_message(user_id, msg)
+            else:
+                line_bot_api.reply_message(event.reply_token, menu_messages[0])
         else:
             line_bot_api.reply_message(
                 event.reply_token,
