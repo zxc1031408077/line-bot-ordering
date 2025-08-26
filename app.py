@@ -1,4 +1,4 @@
-from flask import Flask, request, abort, render_template, session, jsonify, redirect, url_for
+from flask import Flask, request, abort, render_template, session, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
@@ -814,40 +814,9 @@ def create_order_confirmation(user_id):
 def index():
     return render_template("index.html", menu=MENU)
 
-# 管理後台登入頁面
-@app.route("/admin/login", methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        # 簡單的登入驗證 (實際應用中應該使用數據庫驗證)
-        if username == 'admin' and password == 'admin123':
-            session['admin_logged_in'] = True
-            session['admin_username'] = username
-            return redirect(url_for('admin_dashboard'))
-        elif username == 'staff' and password == 'staff123':
-            session['admin_logged_in'] = True
-            session['admin_username'] = username
-            return redirect(url_for('admin_dashboard'))
-        else:
-            return render_template('admin_login.html', error="帳號或密碼錯誤")
-    
-    return render_template('admin_login.html')
-
-# 管理後台登出
-@app.route("/admin/logout")
-def admin_logout():
-    session.pop('admin_logged_in', None)
-    session.pop('admin_username', None)
-    return redirect(url_for('admin_login'))
-
-# 管理後台儀表板
+# 管理後台
 @app.route("/admin")
-def admin_dashboard():
-    if not session.get('admin_logged_in'):
-        return redirect(url_for('admin_login'))
-    
+def admin():
     # 計算訂單統計數據
     orders_count = sum(len(orders) for orders in user_orders.values())
     
@@ -1576,7 +1545,7 @@ def view_orders(event, user_id):
                     )
                 ]
             )
-            item_components.append(item_box)
+        item_components.append(item_box)
         
         status_text = ORDER_STATUS.get(order["status"], "❓ 未知狀態")
         created_time = datetime.fromisoformat(order["created_at"]).strftime("%m/%d %H:%M")
