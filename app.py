@@ -1,4 +1,4 @@
-from flask import Flask, request, abort, render_template, session, jsonify, redirect, url_for
+from flask import Flask, request, abort, render_template, session, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
@@ -9,7 +9,7 @@ from linebot.models import (
     FlexSendMessage, BubbleContainer, BoxComponent, TextComponent,
     ButtonComponent, SeparatorComponent, IconComponent, ImageCarouselTemplate,
     ImageCarouselColumn, ConfirmTemplate, MessageAction, ImageComponent,
-    LocationMessage, LocationAction, DatetimePickerAction
+    SpacerComponent, FillerComponent
 )
 import os
 from dotenv import load_dotenv
@@ -17,17 +17,12 @@ import json
 from datetime import datetime, timedelta
 import uuid
 import logging
-import requests
-from functools import wraps
-import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash
 
 # 載入環境變數
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "default_secret_key")
-app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # 設置日誌
 logging.basicConfig(level=logging.INFO)
@@ -35,235 +30,308 @@ logger = logging.getLogger(__name__)
 
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# 初始化數據庫
-def init_db():
-    conn = sqlite3.connect('restaurant.db')
-    c = conn.cursor()
-    
-    # 創建菜單表
-    c.execute('''CREATE TABLE IF NOT EXISTS menu_categories
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  name TEXT NOT NULL,
-                  description TEXT,
-                  image_url TEXT,
-                  display_order INTEGER)''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS menu_items
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  category_id INTEGER,
-                  name TEXT NOT NULL,
-                  description TEXT,
-                  price REAL NOT NULL,
-                  image_url TEXT,
-                  is_available BOOLEAN DEFAULT 1,
-                  is_recommended BOOLEAN DEFAULT 0,
-                  display_order INTEGER,
-                  FOREIGN KEY (category_id) REFERENCES menu_categories (id))''')
-    
-    # 創建訂單表
-    c.execute('''CREATE TABLE IF NOT EXISTS orders
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  order_number TEXT UNIQUE NOT NULL,
-                  user_id TEXT NOT NULL,
-                  user_name TEXT,
-                  status TEXT DEFAULT 'pending',
-                  total_amount REAL,
-                  order_type TEXT DEFAULT 'pickup',
-                  delivery_address TEXT,
-                  phone_number TEXT,
-                  note TEXT,
-                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS order_items
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  order_id INTEGER,
-                  item_id INTEGER,
-                  item_name TEXT,
-                  quantity INTEGER,
-                  price REAL,
-                  FOREIGN KEY (order_id) REFERENCES orders (id))''')
-    
-    # 創用戶管理表
-    c.execute('''CREATE TABLE IF NOT EXISTS admin_users
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  username TEXT UNIQUE NOT NULL,
-                  password_hash TEXT NOT NULL,
-                  role TEXT DEFAULT 'staff')''')
-    
-    # 插入默認管理員帳號 (username: admin, password: admin123)
-    try:
-        c.execute("INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)",
-                  ('admin', generate_password_hash('admin123'), 'admin'))
-    except sqlite3.IntegrityError:
-        pass  # 用戶已存在
-    
-    conn.commit()
-    conn.close()
-
-# 初始化數據庫
-init_db()
-
-# 數據庫連接函數
-def get_db_connection():
-    conn = sqlite3.connect('restaurant.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# 管理員登入裝飾器
-def admin_login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'admin_logged_in' not in session:
-            return redirect(url_for('admin_login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# 菜單數據 - 從數據庫加載
-def get_menu_data():
-    conn = get_db_connection()
-    categories = conn.execute('SELECT * FROM menu_categories ORDER BY display_order').fetchall()
-    
-    menu = {}
-    for category in categories:
-        items = conn.execute(
-            'SELECT * FROM menu_items WHERE category_id = ? AND is_available = 1 ORDER BY display_order',
-            (category['id'],)
-        ).fetchall()
-        
-        category_items = {}
-        for item in items:
-            category_items[item['name']] = {
-                'id': item['id'],
-                'name': item['name'],
-                'price': item['price'],
-                'desc': item['description'],
-                'image': item['image_url'] or f"https://via.placeholder.com/300x200/4ECDC4/FFFFFF?text={item['name']}"
-            }
-        
-        menu[category['name']] = {
-            'id': category['id'],
-            'name': category['name'],
-            'items': category_items
+# 完整菜單數據 - 使用更高質量的圖片
+MENU = {
+    "recommended": {
+        "id": "recommended",
+        "name": "🌟 推薦餐點",
+        "emoji": "⭐",
+        "color": "#FF6B6B",
+        "items": {
+            "1號餐": {"name": "1號餐", "price": 120, "desc": "🍔 經典漢堡 + 🍟 薯條 + 🥤 可樂", "image": "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=800&h=600&fit=crop", "tag": "熱賣"},
+            "2號餐": {"name": "2號餐", "price": 150, "desc": "🍔 雙層漢堡 + 🍟 薯條 + 🧋 紅茶", "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop", "tag": "推薦"},
+            "3號餐": {"name": "3號餐", "price": 180, "desc": "🍗 雞腿堡 + 🍗 雞塊 + 🥤 雪碧", "image": "https://images.unsplash.com/photo-1606755962773-d324e9a13086?w=800&h=600&fit=crop", "tag": "新品"}
         }
-    
-    conn.close()
-    return menu
-
-# 獲取推薦商品
-def get_recommended_items():
-    conn = get_db_connection()
-    items = conn.execute(
-        'SELECT * FROM menu_items WHERE is_recommended = 1 AND is_available = 1 ORDER BY display_order'
-    ).fetchall()
-    
-    recommended = {}
-    for item in items:
-        recommended[item['name']] = {
-            'id': item['id'],
-            'name': item['name'],
-            'price': item['price'],
-            'desc': item['description'],
-            'image': item['image_url'] or f"https://via.placeholder.com/300x200/FF6B6B/FFFFFF?text={item['name']}"
+    },
+    "main": {
+        "id": "main",
+        "name": "🍔 主餐",
+        "emoji": "🍔",
+        "color": "#4ECDC4",
+        "items": {
+            "經典漢堡": {"name": "經典漢堡", "price": 70, "desc": "🥩 100%純牛肉餅", "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop"},
+            "雙層起司堡": {"name": "雙層起司堡", "price": 90, "desc": "🧀 雙倍起司雙倍滿足", "image": "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=800&h=600&fit=crop"},
+            "照燒雞腿堡": {"name": "照燒雞腿堡", "price": 85, "desc": "🍗 鮮嫩多汁的雞腿肉", "image": "https://images.unsplash.com/photo-1606755962773-d324e9a13086?w=800&h=600&fit=crop"},
+            "素食蔬菜堡": {"name": "素食蔬菜堡", "price": 75, "desc": "🥬 健康素食選擇", "image": "https://images.unsplash.com/photo-1525059696034-4967a729002e?w=800&h=600&fit=crop"}
         }
-    
-    conn.close()
-    return recommended
+    },
+    "side": {
+        "id": "side",
+        "name": "🍟 副餐",
+        "emoji": "🍟",
+        "color": "#45B7D1",
+        "items": {
+            "薯條": {"name": "薯條", "price": 50, "desc": "✨ 金黃酥脆", "image": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop"},
+            "洋蔥圈": {"name": "洋蔥圈", "price": 60, "desc": "🧅 香脆可口", "image": "https://images.unsplash.com/photo-1639744211804-c58bc2ec7530?w=800&h=600&fit=crop"},
+            "雞塊": {"name": "雞塊", "price": 65, "desc": "🍗 6塊裝", "image": "https://images.unsplash.com/photo-1562967914-608f82629710?w=800&h=600&fit=crop"},
+            "沙拉": {"name": "沙拉", "price": 70, "desc": "🥗 新鮮蔬菜", "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&h=600&fit=crop"}
+        }
+    },
+    "drink": {
+        "id": "drink",
+        "name": "🥤 飲料",
+        "emoji": "🥤",
+        "color": "#96CEB4",
+        "items": {
+            "可樂": {"name": "可樂", "price": 30, "desc": "🧊 冰涼暢快", "image": "https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=800&h=600&fit=crop"},
+            "雪碧": {"name": "雪碧", "price": 30, "desc": "🍋 清爽解渴", "image": "https://images.unsplash.com/photo-1625772452859-1c03d5bf1137?w=800&h=600&fit=crop"},
+            "紅茶": {"name": "紅茶", "price": 25, "desc": "🧋 香醇濃郁", "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&h=600&fit=crop"},
+            "咖啡": {"name": "咖啡", "price": 40, "desc": "☕ 現煮咖啡", "image": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&h=600&fit=crop"}
+        }
+    }
+}
 
 # 訂單狀態
 ORDER_STATUS = {
-    "pending": "待確認",
-    "confirmed": "已確認",
-    "preparing": "準備中",
-    "ready": "已完成",
-    "cancelled": "已取消",
-    "delivered": "已送達"
+    "cart": "🛒 購物車",
+    "pending": "⏳ 待確認",
+    "confirmed": "✅ 已確認",
+    "preparing": "👨‍🍳 準備中",
+    "ready": "🎉 已完成",
+    "cancelled": "❌ 已取消"
 }
 
-# 用戶購物車 (實際應用中應使用數據庫或Redis)
+# 用戶數據存儲
 user_carts = {}
-user_locations = {}
-user_profiles = {}
+user_orders = {}
 
-# 生成唯一訂單ID
-def generate_order_number():
+def generate_order_id():
     return datetime.now().strftime("%Y%m%d") + str(uuid.uuid4().int)[:6]
 
-# 創建快速回覆按鈕
+# 創建現代化快速回覆按鈕
 def create_quick_reply():
     items = [
-        QuickReplyButton(action=PostbackAction(label="📋 查看菜單", data="action=view_categories")),
+        QuickReplyButton(action=PostbackAction(label="🍽️ 查看菜單", data="action=view_categories")),
         QuickReplyButton(action=PostbackAction(label="🛒 購物車", data="action=view_cart")),
-        QuickReplyButton(action=PostbackAction(label="📍 提供位置", data="action=request_location")),
-        QuickReplyButton(action=PostbackAction(label="📞 聯絡我們", data="action=contact_us")),
-        QuickReplyButton(action=PostbackAction(label="ℹ️ 幫助", data="action=help"))
+        QuickReplyButton(action=PostbackAction(label="📦 訂單", data="action=view_orders")),
+        QuickReplyButton(action=PostbackAction(label="🏠 首頁", data="action=go_home"))
     ]
     return QuickReply(items=items)
 
-# 創建分類選單
-def create_categories_menu():
-    menu_data = get_menu_data()
-    columns = []
-    
-    # 添加推薦分類
-    recommended_items = get_recommended_items()
-    if recommended_items:
-        columns.append(ImageCarouselColumn(
-            image_url="https://via.placeholder.com/1024x1024/FF6B6B/FFFFFF?text=推薦餐點",
-            action=PostbackAction(
-                label="推薦餐點",
-                data="action=view_menu&category=推薦餐點"
-            )
-        ))
-    
-    # 添加其他分類
-    for category_name in menu_data:
-        if category_name != "推薦餐點":  # 已經單獨處理
-            columns.append(ImageCarouselColumn(
-                image_url=f"https://via.placeholder.com/1024x1024/4ECDC4/FFFFFF?text={category_name}",
-                action=PostbackAction(
-                    label=category_name,
-                    data=f"action=view_menu&category={category_name}"
+# 創建美觀的歡迎訊息
+def create_welcome_message():
+    bubble = BubbleContainer(
+        size="giga",
+        hero=ImageComponent(
+            url="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=400&fit=crop",
+            size="full",
+            aspect_ratio="3:1",
+            aspect_mode="cover"
+        ),
+        body=BoxComponent(
+            layout="vertical",
+            contents=[
+                TextComponent(
+                    text="🍽️ 美食點餐系統",
+                    weight="bold",
+                    size="xl",
+                    color="#2C3E50",
+                    align="center"
+                ),
+                TextComponent(
+                    text="歡迎來到我們的餐廳！",
+                    size="md",
+                    color="#7F8C8D",
+                    align="center",
+                    margin="sm"
+                ),
+                SeparatorComponent(margin="lg"),
+                BoxComponent(
+                    layout="vertical",
+                    margin="lg",
+                    spacing="md",
+                    contents=[
+                        BoxComponent(
+                            layout="horizontal",
+                            contents=[
+                                IconComponent(url="https://cdn-icons-png.flaticon.com/512/562/562678.png", size="sm"),
+                                TextComponent(
+                                    text="精選美味餐點",
+                                    size="sm",
+                                    color="#34495E",
+                                    margin="sm",
+                                    flex=0
+                                )
+                            ]
+                        ),
+                        BoxComponent(
+                            layout="horizontal",
+                            contents=[
+                                IconComponent(url="https://cdn-icons-png.flaticon.com/512/3081/3081559.png", size="sm"),
+                                TextComponent(
+                                    text="快速便捷點餐",
+                                    size="sm",
+                                    color="#34495E",
+                                    margin="sm",
+                                    flex=0
+                                )
+                            ]
+                        ),
+                        BoxComponent(
+                            layout="horizontal",
+                            contents=[
+                                IconComponent(url="https://cdn-icons-png.flaticon.com/512/2343/2343627.png", size="sm"),
+                                TextComponent(
+                                    text="新鮮食材製作",
+                                    size="sm",
+                                    color="#34495E",
+                                    margin="sm",
+                                    flex=0
+                                )
+                            ]
+                        )
+                    ]
                 )
-            ))
-    
-    return TemplateSendMessage(
-        alt_text="菜單分類",
-        template=ImageCarouselTemplate(columns=columns)
+            ]
+        ),
+        footer=BoxComponent(
+            layout="vertical",
+            spacing="md",
+            contents=[
+                ButtonComponent(
+                    style="primary",
+                    height="md",
+                    color="#E74C3C",
+                    action=PostbackAction(
+                        label="🍽️ 開始點餐",
+                        data="action=view_categories"
+                    )
+                ),
+                BoxComponent(
+                    layout="horizontal",
+                    spacing="sm",
+                    contents=[
+                        ButtonComponent(
+                            style="secondary",
+                            height="sm",
+                            flex=1,
+                            action=PostbackAction(
+                                label="🛒 購物車",
+                                data="action=view_cart"
+                            )
+                        ),
+                        ButtonComponent(
+                            style="secondary",
+                            height="sm",
+                            flex=1,
+                            action=PostbackAction(
+                                label="📦 訂單",
+                                data="action=view_orders"
+                            )
+                        )
+                    ]
+                )
+            ]
+        )
     )
-
-# 創建分類菜單
-def create_menu_template(category_name):
-    menu_data = get_menu_data()
     
-    if category_name not in menu_data:
-        # 檢查是否是推薦餐點
-        if category_name == "推薦餐點":
-            items = get_recommended_items()
-            if items:
-                return create_flex_carousel("推薦餐點", items)
-        return None
-        
-    category = menu_data[category_name]
-    return create_flex_carousel(category_name, category['items'])
+    return FlexSendMessage(alt_text="歡迎使用美食點餐系統", contents=bubble)
 
-# 創建Flex輪播消息
-def create_flex_carousel(category_name, items):
+# 創建現代化分類選單
+def create_categories_menu():
     bubbles = []
     
-    for item_name, item_data in items.items():
+    for category_id, category in MENU.items():
+        gradient_colors = {
+            "recommended": ["#FF6B6B", "#FF5252"],
+            "main": ["#4ECDC4", "#26A69A"],
+            "side": ["#45B7D1", "#1976D2"],
+            "drink": ["#96CEB4", "#4CAF50"]
+        }
+        
         bubble = BubbleContainer(
-            size="micro",
+            size="kilo",
+            body=BoxComponent(
+                layout="vertical",
+                contents=[
+                    BoxComponent(
+                        layout="vertical",
+                        contents=[
+                            TextComponent(
+                                text=category["emoji"],
+                                size="4xl",
+                                align="center"
+                            ),
+                            TextComponent(
+                                text=category["name"],
+                                weight="bold",
+                                size="lg",
+                                color="#FFFFFF",
+                                align="center",
+                                margin="sm"
+                            ),
+                            TextComponent(
+                                text=f"{len(category['items'])} 項商品",
+                                size="sm",
+                                color="#FFFFFF",
+                                align="center",
+                                margin="xs",
+                                opacity=0.8
+                            )
+                        ],
+                        background_color=gradient_colors[category_id][0],
+                        padding_all="20px",
+                        corner_radius="15px"
+                    )
+                ]
+            ),
+            action=PostbackAction(
+                data=f"action=view_menu&category={category_id}"
+            )
+        )
+        bubbles.append(bubble)
+    
+    flex_message = FlexSendMessage(
+        alt_text="菜單分類",
+        contents={
+            "type": "carousel",
+            "contents": bubbles
+        }
+    )
+    
+    return flex_message
+
+# 創建美觀的菜單模板
+def create_menu_template(category_id):
+    if category_id not in MENU:
+        return None
+        
+    category = MENU[category_id]
+    bubbles = []
+    
+    for item_name, item_data in category["items"].items():
+        # 添加標籤元素（如果有的話）
+        tag_element = None
+        if "tag" in item_data:
+            tag_element = BoxComponent(
+                layout="baseline",
+                contents=[
+                    TextComponent(
+                        text=item_data["tag"],
+                        color="#FFFFFF",
+                        size="xs",
+                        weight="bold"
+                    )
+                ],
+                background_color="#FF5722",
+                corner_radius="10px",
+                padding_all="5px",
+                position="absolute",
+                offset_top="10px",
+                offset_end="10px"
+            )
+        
+        bubble = BubbleContainer(
+            size="kilo",
             hero=ImageComponent(
                 url=item_data["image"],
                 size="full",
                 aspect_mode="cover",
-                aspect_ratio="1:1"
+                aspect_ratio="4:3"
             ),
             body=BoxComponent(
                 layout="vertical",
@@ -271,56 +339,63 @@ def create_flex_carousel(category_name, items):
                     TextComponent(
                         text=item_data["name"],
                         weight="bold",
-                        size="sm",
-                        wrap=True
+                        size="lg",
+                        color="#2C3E50"
                     ),
                     TextComponent(
                         text=item_data["desc"],
-                        size="xs",
-                        color="#999999",
-                        wrap=True
+                        size="sm",
+                        color="#7F8C8D",
+                        wrap=True,
+                        margin="sm"
                     ),
+                    SeparatorComponent(margin="md"),
                     BoxComponent(
                         layout="baseline",
-                        spacing="sm",
                         contents=[
                             TextComponent(
-                                text="$",
+                                text="NT$",
+                                color="#E74C3C",
                                 size="sm",
-                                color="#ff6b6b",
-                                flex=0
+                                weight="bold"
                             ),
                             TextComponent(
-                                text=f"{item_data['price']}",
-                                size="sm",
-                                color="#ff6b6b",
+                                text=str(item_data["price"]),
+                                color="#E74C3C",
+                                size="xl",
                                 weight="bold",
-                                flex=0
+                                margin="sm"
                             )
-                        ]
+                        ],
+                        margin="md"
                     )
                 ],
                 spacing="sm",
-                paddingAll="10px"
+                padding_all="15px"
             ),
             footer=BoxComponent(
                 layout="vertical",
                 contents=[
                     ButtonComponent(
                         style="primary",
-                        color="#ff6b6b",
-                        height="sm",
+                        height="md",
+                        color=category["color"],
                         action=PostbackAction(
-                            label="加入購物車",
-                            data=f"action=add_to_cart&item={item_name}&price={item_data['price']}&category={category_name}"
+                            label="🛒 加入購物車",
+                            data=f"action=add_to_cart&category={category_id}&item={item_name}"
                         )
                     )
                 ]
             )
         )
+        
+        # 如果有標籤，添加到bubble中
+        if tag_element:
+            bubble.body.contents.insert(0, tag_element)
+            
         bubbles.append(bubble)
     
-    # 將商品分成每10個一組 (LINE限制)
+    # 將商品分組
     flex_messages = []
     for i in range(0, len(bubbles), 10):
         carousel = {
@@ -329,70 +404,146 @@ def create_flex_carousel(category_name, items):
         }
         
         flex_message = FlexSendMessage(
-            alt_text=f"{category_name} 菜單",
+            alt_text=f"{category['name']} 菜單",
             contents=carousel
         )
         flex_messages.append(flex_message)
     
     return flex_messages
 
-# 查看購物車
+# 優化購物車顯示
 def view_cart(user_id):
     if user_id not in user_carts or not user_carts[user_id]["items"]:
-        return TextSendMessage(
-            text="🛒 您的購物車是空的",
-            quick_reply=create_quick_reply()
+        empty_cart_bubble = BubbleContainer(
+            body=BoxComponent(
+                layout="vertical",
+                contents=[
+                    TextComponent(
+                        text="🛒",
+                        size="5xl",
+                        align="center",
+                        color="#BDC3C7"
+                    ),
+                    TextComponent(
+                        text="購物車是空的",
+                        weight="bold",
+                        size="xl",
+                        color="#7F8C8D",
+                        align="center",
+                        margin="md"
+                    ),
+                    TextComponent(
+                        text="快來挑選美味餐點吧！",
+                        size="md",
+                        color="#95A5A6",
+                        align="center",
+                        margin="sm"
+                    )
+                ],
+                padding_all="40px"
+            ),
+            footer=BoxComponent(
+                layout="vertical",
+                contents=[
+                    ButtonComponent(
+                        style="primary",
+                        height="md",
+                        color="#E74C3C",
+                        action=PostbackAction(
+                            label="🍽️ 開始點餐",
+                            data="action=view_categories"
+                        )
+                    )
+                ]
+            )
         )
+        
+        return FlexSendMessage(alt_text="空的購物車", contents=empty_cart_bubble)
     
     cart = user_carts[user_id]
     total = 0
-    items_text = ""
+    item_components = []
     
-    for idx, item in enumerate(cart["items"], 1):
+    for idx, item in enumerate(cart["items"]):
         item_total = item["price"] * item["quantity"]
         total += item_total
-        items_text += f"{idx}. {item['name']} x{item['quantity']} - ${item_total}\n"
+        
+        item_box = BoxComponent(
+            layout="horizontal",
+            contents=[
+                BoxComponent(
+                    layout="vertical",
+                    contents=[
+                        TextComponent(
+                            text=item["name"],
+                            weight="bold",
+                            size="md",
+                            color="#2C3E50"
+                        ),
+                        TextComponent(
+                            text=f"NT${item['price']} × {item['quantity']}",
+                            size="sm",
+                            color="#7F8C8D",
+                            margin="xs"
+                        )
+                    ],
+                    flex=3
+                ),
+                TextComponent(
+                    text=f"NT${item_total}",
+                    size="md",
+                    weight="bold",
+                    color="#E74C3C",
+                    align="end",
+                    flex=1
+                )
+            ],
+            margin="md"
+        )
+        item_components.append(item_box)
+        
+        if idx < len(cart["items"]) - 1:
+            item_components.append(SeparatorComponent(margin="md"))
     
     bubble = BubbleContainer(
         body=BoxComponent(
             layout="vertical",
             contents=[
-                TextComponent(
-                    text="🛒 購物車內容",
-                    weight="bold",
-                    size="xl",
-                    color="#ff6b6b"
-                ),
-                SeparatorComponent(margin="md"),
                 BoxComponent(
-                    layout="vertical",
-                    margin="md",
-                    spacing="sm",
+                    layout="horizontal",
                     contents=[
                         TextComponent(
-                            text=items_text,
-                            wrap=True,
-                            size="md"
+                            text="🛒 購物車",
+                            weight="bold",
+                            size="xl",
+                            color="#2C3E50"
                         ),
-                        SeparatorComponent(margin="md"),
-                        BoxComponent(
-                            layout="baseline",
-                            spacing="sm",
-                            contents=[
-                                TextComponent(
-                                    text="總金額:",
-                                    color="#aaaaaa",
-                                    size="md",
-                                    flex=2
-                                ),
-                                TextComponent(
-                                    text=f"${total}",
-                                    size="md",
-                                    color="#111111",
-                                    weight="bold",
-                                    flex=1
-                                )
-                            ]
+                        TextComponent(
+                            text=f"{len(cart['items'])} 項商品",
+                            size="sm",
+                            color="#7F8C8D",
+                            align="end"
+                        )
+                    ]
+                ),
+                SeparatorComponent(margin="lg"),
+                *item_components,
+                SeparatorComponent(margin="lg"),
+                BoxComponent(
+                    layout="horizontal",
+                    contents=[
+                        TextComponent(
+                            text="總計",
+                            weight="bold",
+                            size="lg",
+                            color="#2C3E50"
+                        ),
+                        TextComponent(
+                            text=f"NT${total}",
+                            weight="bold",
+                            size="xl",
+                            color="#E74C3C",
+                            align="end"
                         )
                     ]
                 )
@@ -400,117 +551,157 @@ def view_cart(user_id):
         ),
         footer=BoxComponent(
             layout="vertical",
-            spacing="sm",
+            spacing="md",
             contents=[
                 ButtonComponent(
                     style="primary",
-                    color="#ff6b6b",
+                    height="md",
+                    color="#27AE60",
                     action=PostbackAction(
-                        label="✅ 確認訂單",
+                        label="💳 確認訂單",
                         data="action=confirm_order"
                     )
                 ),
-                ButtonComponent(
-                    style="secondary",
-                    action=PostbackAction(
-                        label="✏️ 編輯購物車",
-                        data="action=edit_cart"
-                    )
-                ),
-                ButtonComponent(
-                    style="secondary",
-                    action=PostbackAction(
-                        label="⬅️ 繼續點餐",
-                        data="action=view_categories"
-                    )
+                BoxComponent(
+                    layout="horizontal",
+                    spacing="sm",
+                    contents=[
+                        ButtonComponent(
+                            style="secondary",
+                            height="sm",
+                            flex=1,
+                            action=PostbackAction(
+                                label="✏️ 編輯",
+                                data="action=edit_cart"
+                            )
+                        ),
+                        ButtonComponent(
+                            style="secondary",
+                            height="sm",
+                            flex=1,
+                            action=PostbackAction(
+                                label="🍽️ 繼續點餐",
+                                data="action=view_categories"
+                            )
+                        )
+                    ]
                 )
             ]
         )
     )
     
-    return FlexSendMessage(
-        alt_text="購物車內容",
-        contents=bubble
-    )
+    return FlexSendMessage(alt_text="購物車內容", contents=bubble)
 
-# 確認訂單模板
+# 創建美觀的訂單確認模板
 def create_order_confirmation(user_id):
     if user_id not in user_carts or not user_carts[user_id]["items"]:
         return None
         
     cart = user_carts[user_id]
     total = 0
-    items_text = ""
+    item_components = []
     
-    for idx, item in enumerate(cart["items"], 1):
+    for item in cart["items"]:
         item_total = item["price"] * item["quantity"]
         total += item_total
-        items_text += f"{item['name']} x{item['quantity']} - ${item_total}\n"
+        
+        item_box = BoxComponent(
+            layout="horizontal",
+            contents=[
+                TextComponent(
+                    text=item["name"],
+                    size="sm",
+                    color="#2C3E50",
+                    flex=2
+                ),
+                TextComponent(
+                    text=f"x{item['quantity']}",
+                    size="sm",
+                    color="#7F8C8D",
+                    align="center",
+                    flex=1
+                ),
+                TextComponent(
+                    text=f"NT${item_total}",
+                    size="sm",
+                    color="#E74C3C",
+                    weight="bold",
+                    align="end",
+                    flex=1
+                )
+            ],
+            margin="sm"
+        )
+        item_components.append(item_box)
     
-    order_number = generate_order_number()
-    
-    # 獲取用戶位置信息
-    location_text = "未提供位置信息"
-    if user_id in user_locations:
-        loc = user_locations[user_id]
-        location_text = f"{loc['address']} (地圖)"
+    order_id = generate_order_id()
     
     bubble = BubbleContainer(
-        body=BoxComponent(
+        hero=BoxComponent(
             layout="vertical",
             contents=[
                 TextComponent(
-                    text="✅ 訂單確認",
+                    text="✅",
+                    size="4xl",
+                    align="center",
+                    color="#27AE60"
+                ),
+                TextComponent(
+                    text="訂單確認",
                     weight="bold",
                     size="xl",
-                    color="#ff6b6b"
-                ),
-                SeparatorComponent(margin="md"),
+                    color="#FFFFFF",
+                    align="center",
+                    margin="sm"
+                )
+            ],
+            background_color="#27AE60",
+            padding_all="20px"
+        ),
+        body=BoxComponent(
+            layout="vertical",
+            contents=[
                 BoxComponent(
-                    layout="vertical",
-                    margin="md",
-                    spacing="sm",
+                    layout="horizontal",
                     contents=[
                         TextComponent(
-                            text=f"訂單編號: {order_number}",
+                            text="訂單編號",
                             size="sm",
-                            color="#555555"
+                            color="#7F8C8D"
                         ),
                         TextComponent(
-                            text="\n訂單內容:",
-                            size="md",
-                            weight="bold"
-                        ),
-                        TextComponent(
-                            text=items_text,
-                            wrap=True,
-                            size="md"
-                        ),
-                        SeparatorComponent(margin="md"),
-                        TextComponent(
-                            text=f"送餐地址: {location_text}",
+                            text=f"#{order_id}",
                             size="sm",
-                            wrap=True,
-                            margin="md"
+                            color="#2C3E50",
+                            weight="bold",
+                            align="end"
+                        )
+                    ]
+                ),
+                SeparatorComponent(margin="lg"),
+                TextComponent(
+                    text="訂單明細",
+                    weight="bold",
+                    size="md",
+                    color="#2C3E50"
+                ),
+                *item_components,
+                SeparatorComponent(margin="lg"),
+                BoxComponent(
+                    layout="horizontal",
+                    contents=[
+                        TextComponent(
+                            text="總金額",
+                            weight="bold",
+                            size="lg",
+                            color="#2C3E50"
                         ),
-                        BoxComponent(
-                            layout="baseline",
-                            spacing="sm",
-                            contents=[
-                                TextComponent(
-                                    text="總金額:",
-                                    color="#aaaaaa",
-                                    size="md",
-                                    flex=2
-                                ),
-                                TextComponent(
-                                    text=f"${total}",
-                                    size="md",
-                                    color="#111111",
-                                    weight="bold",
-                                    flex=1
-                                )
-                            ]
+                        TextComponent(
+                            text=f"NT${total}",
+                            weight="bold",
+                            size="xl",
+                            color="#E74C3C",
+                            align="end"
                         )
                     ]
                 )
@@ -518,113 +709,40 @@ def create_order_confirmation(user_id):
         ),
         footer=BoxComponent(
             layout="vertical",
-            spacing="sm",
+            spacing="md",
             contents=[
                 ButtonComponent(
                     style="primary",
-                    color="#ff6b6b",
+                    height="md",
+                    color="#F39C12",
                     action=PostbackAction(
-                        label="💳 確認下單",
-                        data=f"action=checkout&order_number={order_number}"
+                        label="💳 確認付款",
+                        data=f"action=checkout&order_id={order_id}"
                     )
                 ),
                 ButtonComponent(
                     style="secondary",
+                    height="sm",
                     action=PostbackAction(
                         label="✏️ 修改訂單",
                         data="action=edit_cart"
-                    )
-                ),
-                ButtonComponent(
-                    style="secondary",
-                    action=URIAction(
-                        label="📍 修改送餐地址",
-                        uri="line://nv/location"
                     )
                 )
             ]
         )
     )
     
-    return FlexSendMessage(
-        alt_text="訂單確認",
-        contents=bubble
-    )
+    return FlexSendMessage(alt_text="訂單確認", contents=bubble)
 
-# 保存訂單到數據庫
-def save_order_to_db(user_id, order_number, cart, order_type="delivery", address="", phone="", note=""):
-    conn = get_db_connection()
-    total = sum(item["price"] * item["quantity"] for item in cart["items"])
-    
-    # 獲取用戶名稱
-    user_name = user_profiles.get(user_id, {}).get('display_name', '未知用戶')
-    
-    # 插入訂單
-    conn.execute(
-        '''INSERT INTO orders 
-           (order_number, user_id, user_name, status, total_amount, order_type, delivery_address, phone_number, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        (order_number, user_id, user_name, 'pending', total, order_type, address, phone, note)
-    )
-    
-    # 獲取剛插入的訂單ID
-    order_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-    
-    # 插入訂單項目
-    for item in cart["items"]:
-        conn.execute(
-            '''INSERT INTO order_items (order_id, item_id, item_name, quantity, price)
-               VALUES (?, ?, ?, ?, ?)''',
-            (order_id, item.get('id', 0), item['name'], item['quantity'], item['price'])
-        )
-    
-    conn.commit()
-    conn.close()
-    
-    return order_id
-
-# 獲取用戶訂單
-def get_user_orders(user_id, limit=5):
-    conn = get_db_connection()
-    orders = conn.execute(
-        '''SELECT * FROM orders 
-           WHERE user_id = ? 
-           ORDER BY created_at DESC 
-           LIMIT ?''',
-        (user_id, limit)
-    ).fetchall()
-    
-    result = []
-    for order in orders:
-        order_items = conn.execute(
-            '''SELECT * FROM order_items WHERE order_id = ?''',
-            (order['id'],)
-        ).fetchall()
-        
-        items_list = []
-        for item in order_items:
-            items_list.append({
-                'name': item['item_name'],
-                'quantity': item['quantity'],
-                'price': item['price']
-            })
-        
-        result.append({
-            'id': order['id'],
-            'order_number': order['order_number'],
-            'status': order['status'],
-            'total': order['total_amount'],
-            'created_at': order['created_at'],
-            'items': items_list
-        })
-    
-    conn.close()
-    return result
-
-# 主頁
+# 首頁
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", menu=MENU)
+
+# 管理後台
+@app.route("/admin")
+def admin():
+    return render_template("admin.html", orders=user_orders)
 
 # LINE Webhook
 @app.route("/callback", methods=['POST'])
@@ -644,78 +762,70 @@ def handle_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip().lower()
     
-    # 保存用戶信息
-    if user_id not in user_profiles:
-        try:
-            profile = line_bot_api.get_profile(user_id)
-            user_profiles[user_id] = {
-                'display_name': profile.display_name,
-                'picture_url': profile.picture_url,
-                'status_message': profile.status_message
-            }
-        except Exception as e:
-            logger.error(f"獲取用戶信息失敗: {e}")
-            user_profiles[user_id] = {'display_name': '用戶'}
-    
-    if text == "點餐" or text == "menu":
-        # 發送分類菜單
+    if text in ["點餐", "menu", "菜單"]:
         reply_message = create_categories_menu()
         line_bot_api.reply_message(event.reply_token, reply_message)
         
-    elif text == "購物車" or text == "cart":
+    elif text in ["購物車", "cart", "🛒"]:
         reply_message = view_cart(user_id)
         line_bot_api.reply_message(event.reply_token, reply_message)
         
-    elif text == "訂單" or text == "orders":
+    elif text in ["訂單", "orders", "📦"]:
         view_orders(event, user_id)
         
-    elif text == "幫助" or text == "help":
-        help_message = TextSendMessage(
-            text="""🍔 美食點餐系統幫助 🍔
-
-主要指令:
-- 點餐: 瀏覽菜單並開始點餐
-- 購物車: 查看當前購物車內容
-- 訂單: 查看您的歷史訂單
-- 幫助: 顯示此幫助訊息
-
-您也可以使用下方的快速按鈕進行操作。
-
-如有任何問題，請聯繫我們的客服人員。""",
-            quick_reply=create_quick_reply()
+    elif text in ["幫助", "help", "?"]:
+        help_bubble = BubbleContainer(
+            body=BoxComponent(
+                layout="vertical",
+                contents=[
+                    TextComponent(
+                        text="📋 使用說明",
+                        weight="bold",
+                        size="xl",
+                        color="#2C3E50"
+                    ),
+                    SeparatorComponent(margin="md"),
+                    BoxComponent(
+                        layout="vertical",
+                        margin="md",
+                        spacing="md",
+                        contents=[
+                            BoxComponent(
+                                layout="horizontal",
+                                contents=[
+                                    TextComponent(text="🍽️", size="lg"),
+                                    TextComponent(text="點餐 - 查看完整菜單", size="sm", color="#34495E", margin="sm")
+                                ]
+                            ),
+                            BoxComponent(
+                                layout="horizontal",
+                                contents=[
+                                    TextComponent(text="🛒", size="lg"),
+                                    TextComponent(text="購物車 - 查看已選商品", size="sm", color="#34495E", margin="sm")
+                                ]
+                            ),
+                            BoxComponent(
+                                layout="horizontal",
+                                contents=[
+                                    TextComponent(text="📦", size="lg"),
+                                    TextComponent(text="訂單 - 查看歷史訂單", size="sm", color="#34495E", margin="sm")
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        )
+        
+        help_message = FlexSendMessage(
+            alt_text="使用說明",
+            contents=help_bubble
         )
         line_bot_api.reply_message(event.reply_token, help_message)
         
     else:
-        # 預設回覆
-        welcome_message = TextSendMessage(
-            text="🍔 歡迎使用美食點餐系統！請選擇您需要的服務：",
-            quick_reply=create_quick_reply()
-        )
-        line_bot_api.reply_message(event.reply_token, welcome_message)
-
-# 處理位置訊息
-@handler.add(MessageEvent, message=LocationMessage)
-def handle_location(event):
-    user_id = event.source.user_id
-    latitude = event.message.latitude
-    longitude = event.message.longitude
-    address = event.message.address
-    
-    # 保存用戶位置
-    user_locations[user_id] = {
-        'latitude': latitude,
-        'longitude': longitude,
-        'address': address
-    }
-    
-    # 回覆確認訊息
-    confirm_message = TextSendMessage(
-        text=f"📍 已收到您的送餐位置: {address}",
-        quick_reply=create_quick_reply()
-    )
-    
-    line_bot_api.reply_message(event.reply_token, confirm_message)
+        reply_message = create_welcome_message()
+        line_bot_api.reply_message(event.reply_token, reply_message)
 
 # 處理按鈕點選
 @handler.add(PostbackEvent)
@@ -737,10 +847,9 @@ def handle_postback(event):
         line_bot_api.reply_message(event.reply_token, reply_message)
         
     elif action == 'view_menu':
-        category_name = data_dict.get('category', '')
-        menu_messages = create_menu_template(category_name)
+        category_id = data_dict.get('category', '')
+        menu_messages = create_menu_template(category_id)
         if menu_messages:
-            # 如果有多個Flex訊息，需要逐個發送
             if len(menu_messages) > 1:
                 line_bot_api.reply_message(event.reply_token, menu_messages[0])
                 for msg in menu_messages[1:]:
@@ -754,10 +863,9 @@ def handle_postback(event):
             )
             
     elif action == 'add_to_cart':
+        category_id = data_dict.get('category', '')
         item_name = data_dict.get('item', '')
-        price = float(data_dict.get('price', 0))
-        category_name = data_dict.get('category', '')
-        add_to_cart(event, user_id, item_name, price, category_name)
+        add_to_cart(event, user_id, category_id, item_name)
         
     elif action == 'view_cart':
         reply_message = view_cart(user_id)
@@ -777,37 +885,25 @@ def handle_postback(event):
             )
             
     elif action == 'checkout':
-        order_number = data_dict.get('order_number', '')
-        checkout_order(event, user_id, order_number)
+        order_id = data_dict.get('order_id', '')
+        checkout_order(event, user_id, order_id)
         
     elif action == 'view_orders':
         view_orders(event, user_id)
         
-    elif action == 'request_location':
-        request_location(event, user_id)
-        
-    elif action == 'contact_us':
-        contact_us(event)
-        
-    elif action == 'help':
-        help_message = TextSendMessage(
-            text="""🍔 美食點餐系統幫助 🍔
+    elif action == 'go_home':
+        reply_message = create_welcome_message()
+        line_bot_api.reply_message(event.reply_token, reply_message)
 
-主要指令:
-- 點餐: 瀏覽菜單並開始點餐
-- 購物車: 查看當前購物車內容
-- 訂單: 查看您的歷史訂單
-- 幫助: 顯示此幫助訊息
-
-您也可以使用下方的快速按鈕進行操作。
-
-如有任何問題，請聯繫我們的客服人員。""",
-            quick_reply=create_quick_reply()
+# 優化添加到購物車功能
+def add_to_cart(event, user_id, category_id, item_name):
+    if category_id not in MENU or item_name not in MENU[category_id]["items"]:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="找不到該商品")
         )
-        line_bot_api.reply_message(event.reply_token, help_message)
-
-# 添加到購物車
-def add_to_cart(event, user_id, item_name, price, category_name):
+        return
+    
     # 初始化用戶購物車
     if user_id not in user_carts:
         user_carts[user_id] = {
@@ -816,6 +912,7 @@ def add_to_cart(event, user_id, item_name, price, category_name):
         }
     
     # 檢查商品是否已在購物車中
+    item_data = MENU[category_id]["items"][item_name]
     cart = user_carts[user_id]
     
     item_found = False
@@ -829,60 +926,100 @@ def add_to_cart(event, user_id, item_name, price, category_name):
     if not item_found:
         cart["items"].append({
             "name": item_name,
-            "price": price,
+            "price": item_data["price"],
             "quantity": 1,
-            "category": category_name
+            "category": category_id
         })
     
     cart["updated_at"] = datetime.now().isoformat()
     
-    # 回覆添加成功訊息
-    confirm_template = ConfirmTemplate(
-        text=f"已將 {item_name} 加入購物車！",
-        actions=[
-            PostbackAction(label="查看購物車", data="action=view_cart"),
-            PostbackAction(label="繼續點餐", data="action=view_categories")
-        ]
-    )
-    
-    template_message = TemplateSendMessage(
-        alt_text="已加入購物車",
-        template=confirm_template
-    )
-    
-    line_bot_api.reply_message(event.reply_token, template_message)
-
-# 請求位置信息
-def request_location(event, user_id):
-    location_message = TemplateSendMessage(
-        alt_text="請求位置信息",
-        template=ButtonsTemplate(
-            text="請分享您的位置，以便我們為您送餐",
-            actions=[
-                LocationAction(label="分享位置")
+    # 創建美觀的確認訊息
+    success_bubble = BubbleContainer(
+        body=BoxComponent(
+            layout="vertical",
+            contents=[
+                TextComponent(
+                    text="🎉",
+                    size="3xl",
+                    align="center",
+                    color="#27AE60"
+                ),
+                TextComponent(
+                    text="已加入購物車！",
+                    weight="bold",
+                    size="lg",
+                    color="#27AE60",
+                    align="center",
+                    margin="sm"
+                ),
+                SeparatorComponent(margin="md"),
+                BoxComponent(
+                    layout="horizontal",
+                    contents=[
+                        BoxComponent(
+                            layout="vertical",
+                            contents=[
+                                TextComponent(
+                                    text=item_name,
+                                    weight="bold",
+                                    size="md",
+                                    color="#2C3E50"
+                                ),
+                                TextComponent(
+                                    text=f"NT${item_data['price']}",
+                                    size="sm",
+                                    color="#E74C3C",
+                                    margin="xs"
+                                )
+                            ],
+                            flex=2
+                        ),
+                        TextComponent(
+                            text=f"數量: {sum(item['quantity'] for item in cart['items'] if item['name'] == item_name)}",
+                            size="sm",
+                            color="#7F8C8D",
+                            align="end",
+                            flex=1
+                        )
+                    ],
+                    margin="md"
+                )
+            ]
+        ),
+        footer=BoxComponent(
+            layout="vertical",
+            spacing="sm",
+            contents=[
+                ButtonComponent(
+                    style="primary",
+                    height="md",
+                    color="#3498DB",
+                    action=PostbackAction(
+                        label="🛒 查看購物車",
+                        data="action=view_cart"
+                    )
+                ),
+                ButtonComponent(
+                    style="secondary",
+                    height="sm",
+                    action=PostbackAction(
+                        label="🍽️ 繼續點餐",
+                        data="action=view_categories"
+                    )
+                )
             ]
         )
     )
     
-    line_bot_api.reply_message(event.reply_token, location_message)
-
-# 聯絡我們
-def contact_us(event):
-    contact_text = """📞 聯絡我們
-
-營業時間: 10:00 - 22:00
-電話: 02-1234-5678
-地址: 台北市信義區松壽路12號
-
-如有任何問題，歡迎隨時聯繫我們！"""
-    
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=contact_text)
+    template_message = FlexSendMessage(
+        alt_text="已加入購物車",
+        contents=success_bubble
     )
+    
+    line_bot_api.reply_message(event.reply_token, template_message)
 
-# 結帳
-def checkout_order(event, user_id, order_number):
+# 優化結帳功能
+def checkout_order(event, user_id, order_id):
     if user_id not in user_carts or not user_carts[user_id]["items"]:
         line_bot_api.reply_message(
             event.reply_token,
@@ -893,119 +1030,275 @@ def checkout_order(event, user_id, order_number):
         )
         return
     
-    # 檢查是否有送餐地址
-    if user_id not in user_locations:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(
-                text="請先提供送餐位置再下單",
-                quick_reply=create_quick_reply()
-            )
-        )
-        return
-    
     # 創建訂單
     cart = user_carts[user_id]
-    location = user_locations[user_id]
+    total = sum(item["price"] * item["quantity"] for item in cart["items"])
     
-    # 保存訂單到數據庫
-    save_order_to_db(
-        user_id, 
-        order_number, 
-        cart, 
-        "delivery", 
-        location['address']
-    )
+    if user_id not in user_orders:
+        user_orders[user_id] = []
+    
+    order = {
+        "id": order_id,
+        "user_id": user_id,
+        "items": cart["items"].copy(),
+        "total": total,
+        "status": "confirmed",
+        "created_at": datetime.now().isoformat(),
+        "updated_at": datetime.now().isoformat()
+    }
+    
+    user_orders[user_id].append(order)
     
     # 清空購物車
     user_carts[user_id]["items"] = []
     
-    # 回覆結帳成功訊息
-    reply_text = f"✅ 訂單已確認！\n\n"
-    reply_text += f"訂單編號: {order_number}\n"
-    reply_text += f"送餐地址: {location['address']}\n"
-    reply_text += f"預計送達時間: { (datetime.now() + timedelta(minutes=40)).strftime('%H:%M') }\n\n"
-    reply_text += "我們將開始準備您的餐點，請保持手機暢通。\n"
-    reply_text += "感謝您的訂購！"
+    # 創建美觀的成功訊息
+    success_bubble = BubbleContainer(
+        hero=BoxComponent(
+            layout="vertical",
+            contents=[
+                TextComponent(
+                    text="🎉",
+                    size="5xl",
+                    align="center",
+                    color="#FFFFFF"
+                ),
+                TextComponent(
+                    text="訂單完成！",
+                    weight="bold",
+                    size="xl",
+                    color="#FFFFFF",
+                    align="center",
+                    margin="sm"
+                )
+            ],
+            background_color="#27AE60",
+            padding_all="25px"
+        ),
+        body=BoxComponent(
+            layout="vertical",
+            contents=[
+                BoxComponent(
+                    layout="horizontal",
+                    contents=[
+                        TextComponent(
+                            text="訂單編號",
+                            size="md",
+                            color="#7F8C8D"
+                        ),
+                        TextComponent(
+                            text=f"#{order_id}",
+                            size="md",
+                            color="#2C3E50",
+                            weight="bold",
+                            align="end"
+                        )
+                    ]
+                ),
+                BoxComponent(
+                    layout="horizontal",
+                    contents=[
+                        TextComponent(
+                            text="總金額",
+                            size="md",
+                            color="#7F8C8D"
+                        ),
+                        TextComponent(
+                            text=f"NT${total}",
+                            size="lg",
+                            color="#E74C3C",
+                            weight="bold",
+                            align="end"
+                        )
+                    ],
+                    margin="sm"
+                ),
+                SeparatorComponent(margin="lg"),
+                BoxComponent(
+                    layout="vertical",
+                    contents=[
+                        TextComponent(
+                            text="🍳 我們正在為您準備餐點",
+                            size="md",
+                            color="#F39C12",
+                            weight="bold",
+                            align="center"
+                        ),
+                        TextComponent(
+                            text="預計準備時間：15-20分鐘",
+                            size="sm",
+                            color="#7F8C8D",
+                            align="center",
+                            margin="sm"
+                        )
+                    ]
+                )
+            ]
+        ),
+        footer=BoxComponent(
+            layout="vertical",
+            spacing="sm",
+            contents=[
+                ButtonComponent(
+                    style="primary",
+                    height="md",
+                    color="#3498DB",
+                    action=PostbackAction(
+                        label="📦 查看訂單狀態",
+                        data="action=view_orders"
+                    )
+                ),
+                ButtonComponent(
+                    style="secondary",
+                    height="sm",
+                    action=PostbackAction(
+                        label="🍽️ 再次點餐",
+                        data="action=view_categories"
+                    )
+                )
+            ]
+        )
+    )
     
     line_bot_api.reply_message(
         event.reply_token,
-        TextSendMessage(
-            text=reply_text,
-            quick_reply=create_quick_reply()
-        )
+        FlexSendMessage(alt_text="訂單完成", contents=success_bubble)
     )
 
-# 查看訂單
+# 優化查看訂單功能
 def view_orders(event, user_id):
-    orders = get_user_orders(user_id)
-    
-    if not orders:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(
-                text="您目前沒有訂單",
-                quick_reply=create_quick_reply()
-            )
-        )
-        return
-    
-    bubbles = []
-    
-    for order in orders:
-        items_text = ""
-        for item in order['items']:
-            items_text += f"{item['name']} x{item['quantity']}\n"
-        
-        status_text = ORDER_STATUS.get(order['status'], "未知狀態")
-        created_time = datetime.strptime(order['created_at'], "%Y-%m-%d %H:%M:%S").strftime("%m/%d %H:%M")
-        
-        bubble = BubbleContainer(
-            size="kilo",
+    if user_id not in user_orders or not user_orders[user_id]:
+        empty_orders_bubble = BubbleContainer(
             body=BoxComponent(
                 layout="vertical",
                 contents=[
                     TextComponent(
-                        text=f"訂單 #{order['order_number']}",
+                        text="📦",
+                        size="5xl",
+                        align="center",
+                        color="#BDC3C7"
+                    ),
+                    TextComponent(
+                        text="暫無訂單記錄",
                         weight="bold",
+                        size="xl",
+                        color="#7F8C8D",
+                        align="center",
+                        margin="md"
+                    ),
+                    TextComponent(
+                        text="快來點餐建立您的第一筆訂單吧！",
                         size="md",
-                        color="#ff6b6b"
-                    ),
-                    TextComponent(
-                        text=f"狀態: {status_text}",
-                        size="sm",
-                        color="#666666",
+                        color="#95A5A6",
+                        align="center",
                         margin="sm"
+                    )
+                ],
+                padding_all="40px"
+            ),
+            footer=BoxComponent(
+                layout="vertical",
+                contents=[
+                    ButtonComponent(
+                        style="primary",
+                        height="md",
+                        color="#E74C3C",
+                        action=PostbackAction(
+                            label="🍽️ 開始點餐",
+                            data="action=view_categories"
+                        )
+                    )
+                ]
+            )
+        )
+        
+        line_bot_api.reply_message(
+            event.reply_token,
+            FlexSendMessage(alt_text="暫無訂單", contents=empty_orders_bubble)
+        )
+        return
+    
+    orders = user_orders[user_id]
+    bubbles = []
+    
+    # 狀態顏色映射
+    status_colors = {
+        "confirmed": "#27AE60",
+        "preparing": "#F39C12", 
+        "ready": "#3498DB",
+        "cancelled": "#E74C3C"
+    }
+    
+    for order in reversed(orders[-5:]):  # 顯示最近5筆訂單，最新的在前
+        items_text = ""
+        for item in order["items"][:3]:  # 最多顯示3項商品
+            items_text += f"• {item['name']} x{item['quantity']}\n"
+        
+        if len(order["items"]) > 3:
+            items_text += f"• 等 {len(order['items'])} 項商品"
+        
+        status_text = ORDER_STATUS.get(order["status"], "未知狀態")
+        status_color = status_colors.get(order["status"], "#7F8C8D")
+        created_time = datetime.fromisoformat(order["created_at"]).strftime("%m/%d %H:%M")
+        
+        bubble = BubbleContainer(
+            body=BoxComponent(
+                layout="vertical",
+                contents=[
+                    BoxComponent(
+                        layout="horizontal",
+                        contents=[
+                            TextComponent(
+                                text=f"#{order['id']}",
+                                weight="bold",
+                                size="lg",
+                                color="#2C3E50"
+                            ),
+                            BoxComponent(
+                                layout="baseline",
+                                contents=[
+                                    TextComponent(
+                                        text=status_text,
+                                        color="#FFFFFF",
+                                        size="xs",
+                                        weight="bold"
+                                    )
+                                ],
+                                background_color=status_color,
+                                corner_radius="10px",
+                                padding_all="5px"
+                            )
+                        ]
                     ),
                     TextComponent(
-                        text=f"時間: {created_time}",
-                        size="xs",
-                        color="#999999",
+                        text=created_time,
+                        size="sm",
+                        color="#95A5A6",
                         margin="sm"
                     ),
                     SeparatorComponent(margin="md"),
                     TextComponent(
                         text=items_text,
                         size="sm",
-                        margin="md",
-                        wrap=True
+                        color="#34495E",
+                        wrap=True,
+                        margin="md"
                     ),
                     SeparatorComponent(margin="md"),
                     BoxComponent(
-                        layout="baseline",
+                        layout="horizontal",
                         contents=[
                             TextComponent(
-                                text="總金額:",
-                                color="#aaaaaa",
-                                size="sm",
-                                flex=2
+                                text="總金額",
+                                color="#7F8C8D",
+                                size="sm"
                             ),
                             TextComponent(
-                                text=f"${order['total']}",
-                                size="sm",
-                                color="#111111",
+                                text=f"NT${order['total']}",
+                                size="md",
+                                color="#E74C3C",
                                 weight="bold",
-                                flex=1
+                                align="end"
                             )
                         ]
                     )
@@ -1014,112 +1307,15 @@ def view_orders(event, user_id):
         )
         bubbles.append(bubble)
     
-    flex_message = FlexSendMessage(
-        alt_text="我的訂單",
-        contents={
-            "type": "carousel",
-            "contents": bubbles
-        }
-    )
-    
-    line_bot_api.reply_message(event.reply_token, flex_message)
-
-# 管理員登入頁面
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        conn = get_db_connection()
-        user = conn.execute(
-            'SELECT * FROM admin_users WHERE username = ?', (username,)
-        ).fetchone()
-        conn.close()
-        
-        if user and check_password_hash(user['password_hash'], password):
-            session['admin_logged_in'] = True
-            session['admin_username'] = username
-            session['admin_role'] = user['role']
-            return redirect(url_for('admin_dashboard'))
-        else:
-            return render_template('admin_login.html', error='帳號或密碼錯誤')
-    
-    return render_template('admin_login.html')
-
-# 管理員儀表板
-@app.route('/admin')
-@admin_login_required
-def admin_dashboard():
-    conn = get_db_connection()
-    
-    # 獲取訂單統計
-    today = datetime.now().strftime("%Y-%m-%d")
-    orders_today = conn.execute(
-        "SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = ?", (today,)
-    ).fetchone()['count']
-    
-    total_orders = conn.execute("SELECT COUNT(*) as count FROM orders").fetchone()['count']
-    pending_orders = conn.execute(
-        "SELECT COUNT(*) as count FROM orders WHERE status = 'pending'"
-    ).fetchone()['count']
-    
-    # 獲取最近訂單
-    recent_orders = conn.execute(
-        "SELECT * FROM orders ORDER BY created_at DESC LIMIT 10"
-    ).fetchall()
-    
-    conn.close()
-    
-    return render_template('admin_dashboard.html', 
-                         orders_today=orders_today,
-                         total_orders=total_orders,
-                         pending_orders=pending_orders,
-                         recent_orders=recent_orders)
-
-# 訂單管理
-@app.route('/admin/orders')
-@admin_login_required
-def admin_orders():
-    status = request.args.get('status', 'all')
-    
-    conn = get_db_connection()
-    
-    if status == 'all':
-        orders = conn.execute(
-            "SELECT * FROM orders ORDER BY created_at DESC"
-        ).fetchall()
-    else:
-        orders = conn.execute(
-            "SELECT * FROM orders WHERE status = ? ORDER BY created_at DESC",
-            (status,)
-        ).fetchall()
-    
-    conn.close()
-    
-    return render_template('admin_orders.html', orders=orders, status=status)
-
-# 菜單管理
-@app.route('/admin/menu')
-@admin_login_required
-def admin_menu():
-    conn = get_db_connection()
-    categories = conn.execute("SELECT * FROM menu_categories ORDER BY display_order").fetchall()
-    items = conn.execute(
-        """SELECT mi.*, mc.name as category_name 
-           FROM menu_items mi 
-           JOIN menu_categories mc ON mi.category_id = mc.id 
-           ORDER BY mc.display_order, mi.display_order"""
-    ).fetchall()
-    conn.close()
-    
-    return render_template('admin_menu.html', categories=categories, items=items)
-
-# 管理員登出
-@app.route('/admin/logout')
-def admin_logout():
-    session.clear()
-    return redirect(url_for('admin_login'))
+    if bubbles:
+        flex_message = FlexSendMessage(
+            alt_text="我的訂單",
+            contents={
+                "type": "carousel",
+                "contents": bubbles
+            }
+        )
+        line_bot_api.reply_message(event.reply_token, flex_message)
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True)
