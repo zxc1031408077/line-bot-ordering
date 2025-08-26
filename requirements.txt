@@ -1,6 +1,4 @@
-flask==3.0.2
-line-bot-sdk==3.11.0
-python-dotenv==1.0.1
-pydantic==2.8.2
-SQLAlchemy==2.0.32
-gunicorn
+fastapi
+uvicorn
+sqlalchemy
+line-bot-sdk==3.5.0
