@@ -3,10 +3,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, Menu, Order, OrderItem
+from models import Base, Order, OrderItem
 from linebot.v3.messaging import (
     Configuration, ApiClient, MessagingApi,
-    ReplyMessageRequest, TextMessage, PushMessageRequest, TextMessage
+    ReplyMessageRequest, TextMessage, PushMessageRequest
 )
 from linebot.v3.webhooks import WebhookParser
 from linebot.v3.webhooks.models import MessageEvent, TextMessageContent
