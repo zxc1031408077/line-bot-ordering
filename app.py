@@ -817,10 +817,10 @@ def index():
 # 管理後台
 @app.route("/admin")
 def admin():
-    # 計算訂單統計數據
+    # 计算订单统计数据
     orders_count = sum(len(orders) for orders in user_orders.values())
     
-    # 計算今日訂單
+    # 计算今日订单
     today = datetime.now().date()
     today_orders = 0
     for user_id, orders in user_orders.items():
@@ -829,14 +829,14 @@ def admin():
             if order_date == today:
                 today_orders += 1
     
-    # 計算待處理訂單
+    # 计算待处理订单
     pending_orders = 0
     for user_id, orders in user_orders.items():
         for order in orders:
             if order["status"] in ["pending", "confirmed"]:
                 pending_orders += 1
     
-    # 獲取最近5筆訂單
+    # 获取最近5笔订单
     all_orders = []
     for user_id, orders in user_orders.items():
         for order in orders:
@@ -848,7 +848,7 @@ def admin():
                 "created_at": order["created_at"]
             })
     
-    # 按創建時間排序
+    # 按创建时间排序
     all_orders.sort(key=lambda x: x["created_at"], reverse=True)
     recent_orders = all_orders[:5]
     
