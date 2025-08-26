@@ -1,4 +1,4 @@
-from flask import Flask, request, abort, render_template, session, jsonify
+from flask import Flask, request, abort, render_template, session, jsonify, redirect, url_for
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
@@ -814,13 +814,44 @@ def create_order_confirmation(user_id):
 def index():
     return render_template("index.html", menu=MENU)
 
-# 管理後台
+# 管理後台登入頁面
+@app.route("/admin/login", methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # 簡單的登入驗證 (實際應用中應該使用數據庫驗證)
+        if username == 'admin' and password == 'admin123':
+            session['admin_logged_in'] = True
+            session['admin_username'] = username
+            return redirect(url_for('admin_dashboard'))
+        elif username == 'staff' and password == 'staff123':
+            session['admin_logged_in'] = True
+            session['admin_username'] = username
+            return redirect(url_for('admin_dashboard'))
+        else:
+            return render_template('admin_login.html', error="帳號或密碼錯誤")
+    
+    return render_template('admin_login.html')
+
+# 管理後台登出
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    session.pop('admin_username', None)
+    return redirect(url_for('admin_login'))
+
+# 管理後台儀表板
 @app.route("/admin")
-def admin():
-    # 计算订单统计数据
+def admin_dashboard():
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    # 計算訂單統計數據
     orders_count = sum(len(orders) for orders in user_orders.values())
     
-    # 计算今日订单
+    # 計算今日訂單
     today = datetime.now().date()
     today_orders = 0
     for user_id, orders in user_orders.items():
@@ -829,14 +860,14 @@ def admin():
             if order_date == today:
                 today_orders += 1
     
-    # 计算待处理订单
+    # 計算待處理訂單
     pending_orders = 0
     for user_id, orders in user_orders.items():
         for order in orders:
             if order["status"] in ["pending", "confirmed"]:
                 pending_orders += 1
     
-    # 获取最近5笔订单
+    # 獲取最近5筆訂單
     all_orders = []
     for user_id, orders in user_orders.items():
         for order in orders:
@@ -848,7 +879,7 @@ def admin():
                 "created_at": order["created_at"]
             })
     
-    # 按创建时间排序
+    # 按創建時間排序
     all_orders.sort(key=lambda x: x["created_at"], reverse=True)
     recent_orders = all_orders[:5]
     
