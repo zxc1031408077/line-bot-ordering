@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>LINE 點餐機器人</title>
+</head>
+<body>
+    <h1>LINE 點餐機器人已啟動</h1>
+    <p>請到 LINE 聊天視窗與機器人互動。</p>
+</body>
+</html>
