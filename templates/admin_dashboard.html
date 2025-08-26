@@ -151,12 +151,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/admin/orders">
+                    <a class="nav-link" href="#">
                         <i class="fas fa-shopping-bag me-2"></i>訂單管理
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/admin/menu">
+                    <a class="nav-link" href="#">
                         <i class="fas fa-utensils me-2"></i>菜單管理
                     </a>
                 </li>
@@ -229,30 +229,30 @@
                     </tr>
                 </thead>
                 <tbody>
-{% for order in recent_orders %}
-<tr>
-    <td>{{ order.id }}</td>
-    <td>用戶 {{ order.user_id[-4:] }}</td>
-    <td>${{ order.total }}</td>
-    <td>
-        {% if order.status == 'pending' %}
-        <span class="order-status status-pending">待確認</span>
-        {% elif order.status == 'confirmed' %}
-        <span class="order-status status-confirmed">已確認</span>
-        {% elif order.status == 'preparing' %}
-        <span class="order-status status-preparing">準備中</span>
-        {% elif order.status == 'ready' %}
-        <span class="order-status status-ready">已完成</span>
-        {% elif order.status == 'cancelled' %}
-        <span class="order-status status-cancelled">已取消</span>
-        {% endif %}
-    </td>
-    <td>{{ order.created_at[:16] }}</td>
-    <td>
-        <button class="btn btn-sm btn-outline-primary">查看</button>
-    </td>
-</tr>
-{% endfor %}
+                    {% for order in recent_orders %}
+                    <tr>
+                        <td>{{ order.id }}</td>
+                        <td>用戶 {{ order.user_id[-4:] }}</td>
+                        <td>${{ order.total }}</td>
+                        <td>
+                            {% if order.status == 'pending' %}
+                            <span class="order-status status-pending">待確認</span>
+                            {% elif order.status == 'confirmed' %}
+                            <span class="order-status status-confirmed">已確認</span>
+                            {% elif order.status == 'preparing' %}
+                            <span class="order-status status-preparing">準備中</span>
+                            {% elif order.status == 'ready' %}
+                            <span class="order-status status-ready">已完成</span>
+                            {% elif order.status == 'cancelled' %}
+                            <span class="order-status status-cancelled">已取消</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ order.created_at[:16] }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary">查看</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
