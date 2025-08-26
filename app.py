@@ -32,8 +32,12 @@ def index():
     return render_template("index.html")
 
 # LINE Webhook
-@app.route("/callback", methods=['POST'])
+@app.route("/callback", methods=['GET', 'POST'])
 def callback():
+    if request.method == 'GET':
+        return "OK", 200  # 給 LINE 驗證用
+    
+    # POST 的情況才處理 LINE 的訊息
     signature = request.headers.get('X-Line-Signature')
     body = request.get_data(as_text=True)
 
