@@ -383,7 +383,6 @@ def view_cart(user_id):
         alt_text="🛒 購物車內容",
         contents=bubble
     )
-# Add these functions to your existing code
 
 def create_edit_cart_menu(user_id):
     """創建編輯購物車選單"""
@@ -593,8 +592,6 @@ def create_clear_cart_confirmation():
         template=confirm_template
     )
 
-# Add these handlers to your handle_postback function:
-
 def handle_cart_editing_actions(event, user_id, data_dict):
     """處理購物車編輯相關動作"""
     action = data_dict.get('action', '')
@@ -659,8 +656,6 @@ def handle_cart_editing_actions(event, user_id, data_dict):
             quick_reply=create_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, success_message)
-
-
 
 # 確認訂單模板 - 優化版
 def create_order_confirmation(user_id):
@@ -822,8 +817,48 @@ def index():
 # 管理後台
 @app.route("/admin")
 def admin():
-    # 這裡應該有身份驗證
-    return render_template("admin.html", orders=user_orders)
+    # 計算訂單統計數據
+    orders_count = sum(len(orders) for orders in user_orders.values())
+    
+    # 計算今日訂單
+    today = datetime.now().date()
+    today_orders = 0
+    for user_id, orders in user_orders.items():
+        for order in orders:
+            order_date = datetime.fromisoformat(order["created_at"]).date()
+            if order_date == today:
+                today_orders += 1
+    
+    # 計算待處理訂單
+    pending_orders = 0
+    for user_id, orders in user_orders.items():
+        for order in orders:
+            if order["status"] in ["pending", "confirmed"]:
+                pending_orders += 1
+    
+    # 獲取最近5筆訂單
+    all_orders = []
+    for user_id, orders in user_orders.items():
+        for order in orders:
+            all_orders.append({
+                "id": order["id"],
+                "user_id": user_id,
+                "total": order["total"],
+                "status": order["status"],
+                "created_at": order["created_at"]
+            })
+    
+    # 按創建時間排序
+    all_orders.sort(key=lambda x: x["created_at"], reverse=True)
+    recent_orders = all_orders[:5]
+    
+    return render_template(
+        "admin_dashboard.html", 
+        orders_count=orders_count,
+        today_orders=today_orders,
+        pending_orders=pending_orders,
+        recent_orders=recent_orders
+    )
 
 # LINE Webhook
 @app.route("/callback", methods=['POST'])
@@ -1032,6 +1067,7 @@ def handle_message(event):
             quick_reply=create_quick_reply()
         )
         line_bot_api.reply_message(event.reply_token, welcome_message)
+
 @handler.add(PostbackEvent)
 def handle_postback(event):
     user_id = event.source.user_id
@@ -1050,140 +1086,6 @@ def handle_postback(event):
     if action in ['edit_cart', 'increase_item', 'decrease_item', 'remove_item', 'clear_cart', 'clear_cart_confirm']:
         handle_cart_editing_actions(event, user_id, data_dict)
         return
-    
-    if action == 'view_categories':
-        reply_message = create_categories_menu()
-        line_bot_api.reply_message(event.reply_token, reply_message)
-        
-    elif action == 'view_menu':
-        category_id = data_dict.get('category', '')
-        menu_messages = create_menu_template(category_id)
-        if menu_messages:
-            # 如果有多個Flex訊息，需要逐個發送
-            if len(menu_messages) > 1:
-                line_bot_api.reply_message(event.reply_token, menu_messages[0])
-                for msg in menu_messages[1:]:
-                    line_bot_api.push_message(user_id, msg)
-            else:
-                line_bot_api.reply_message(event.reply_token, menu_messages[0])
-        else:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="❌ 找不到該菜單分類")
-            )
-            
-    elif action == 'add_to_cart':
-        category_id = data_dict.get('category', '')
-        item_name = data_dict.get('item', '')
-        add_to_cart(event, user_id, category_id, item_name)
-        
-    elif action == 'view_cart':
-        reply_message = view_cart(user_id)
-        line_bot_api.reply_message(event.reply_token, reply_message)
-        
-    elif action == 'confirm_order':
-        reply_message = create_order_confirmation(user_id)
-        if reply_message:
-            line_bot_api.reply_message(event.reply_token, reply_message)
-        else:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(
-                    text="🛒 您的購物車是空的，無法建立訂單\n快去選購美味的餐點吧！",
-                    quick_reply=create_quick_reply()
-                )
-            )
-            
-    elif action == 'checkout':
-        order_id = data_dict.get('order_id', '')
-        checkout_order(event, user_id, order_id)
-        
-    elif action == 'view_orders':
-        view_orders(event, user_id)
-        
-    elif action == 'go_home':
-        # 優化版歡迎訊息
-        welcome_bubble = BubbleContainer(
-            hero=ImageComponent(
-                url="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=1024&h=400&fit=crop",
-                size="full",
-                aspect_mode="cover",
-                aspect_ratio="5:2"
-            ),
-            body=BoxComponent(
-                layout="vertical",
-                contents=[
-                    TextComponent(
-                        text="🍽️ 美食點餐系統",
-                        weight="bold",
-                        size="xxl",
-                        color="#e74c3c",
-                        align="center"
-                    ),
-                    TextComponent(
-                        text="歡迎使用線上點餐服務",
-                        size="lg",
-                        color="#2c3e50",
-                        align="center",
-                        margin="md"
-                    ),
-                    SeparatorComponent(margin="xl", color="#ecf0f1"),
-                    TextComponent(
-                        text="請選擇您需要的服務：",
-                        size="md",
-                        color="#7f8c8d",
-                        align="center",
-                        margin="xl"
-                    )
-                ],
-                paddingAll="20px"
-            ),
-            footer=BoxComponent(
-                layout="vertical",
-                spacing="md",
-                contents=[
-                    ButtonComponent(
-                        style="primary",
-                        color="#e74c3c",
-                        height="md",
-                        action=PostbackAction(
-                            label="📋 開始點餐",
-                            data="action=view_categories"
-                        )
-                    ),
-                    ButtonComponent(
-                        style="secondary",
-                        height="md",
-                        action=PostbackAction(
-                            label="🛒 查看購物車",
-                            data="action=view_cart"
-                        )
-                    )
-                ],
-                paddingAll="20px"
-            )
-        )
-        
-        welcome_message = FlexSendMessage(
-            alt_text="🍽️ 歡迎使用美食點餐系統",
-            contents=welcome_bubble,
-            quick_reply=create_quick_reply()
-        )
-        line_bot_api.reply_message(event.reply_token, welcome_message)
-# 處理按鈕點選
-@handler.add(PostbackEvent)
-def handle_postback(event):
-    user_id = event.source.user_id
-    data = event.postback.data
-    
-    # 解析數據
-    data_dict = {}
-    for item in data.split('&'):
-        if '=' in item:
-            key, value = item.split('=', 1)
-            data_dict[key] = value
-    
-    action = data_dict.get('action', '')
     
     if action == 'view_categories':
         reply_message = create_categories_menu()
