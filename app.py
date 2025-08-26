@@ -209,7 +209,7 @@ def create_menu_template(category_id):
                     "backgroundColor": "#ffffff"
                 },
                 "footer": {
-                    "backgroundColor": #f8f9fa
+                    "backgroundColor": "#f8f9fa"
                 }
             }
         )
@@ -1545,7 +1545,7 @@ def view_orders(event, user_id):
                     )
                 ]
             )
-            item_components.append(item_box)
+        item_components.append(item_box)
         
         status_text = ORDER_STATUS.get(order["status"], "❓ 未知狀態")
         created_time = datetime.fromisoformat(order["created_at"]).strftime("%m/%d %H:%M")
