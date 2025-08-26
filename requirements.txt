@@ -2,5 +2,4 @@ Flask==2.3.3
 line-bot-sdk==2.4.1
 python-dotenv==1.0.0
 Werkzeug==2.3.7
-requests
 gunicorn
