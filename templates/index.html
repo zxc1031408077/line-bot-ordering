@@ -2,10 +2,225 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>LINE 點餐機器人</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美食點餐系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #ff6b6b;
+            --secondary-color: #4ecdc4;
+            --dark-color: #1a1a2e;
+            --light-color: #f8f9fa;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        
+        .navbar {
+            background-color: var(--primary-color);
+        }
+        
+        .hero-section {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+        }
+        
+        .menu-category {
+            margin-bottom: 30px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .menu-category:hover {
+            transform: translateY(-5px);
+        }
+        
+        .menu-category img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        
+        .menu-category-content {
+            padding: 20px;
+        }
+        
+        .menu-category h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .menu-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        .price {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+        
+        .qr-section {
+            background-color: white;
+            padding: 50px 0;
+            text-align: center;
+        }
+        
+        .qr-code {
+            max-width: 250px;
+            margin: 0 auto;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: #e55c5c;
+            border-color: #e55c5c;
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
 <body>
-    <h1>LINE 點餐機器人已啟動</h1>
-    <p>請到 LINE 聊天視窗與機器人互動。</p>
+    <!-- 導航欄 -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-utensils me-2"></i>美食點餐系統
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">首頁</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#menu">菜單</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#about">關於我們</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#contact">聯絡我們</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 英雄區域 -->
+    <section class="hero-section">
+        <div class="container">
+            <h1 class="display-4 fw-bold">美食點餐系統</h1>
+            <p class="lead">使用LINE快速點餐，享受便捷的美食體驗</p>
+            <a href="#menu" class="btn btn-primary btn-lg mt-3">查看菜單</a>
+        </div>
+    </section>
+
+    <!-- 功能特色 -->
+    <section class="py-5">
+        <div class="container">
+            <div class="row text-center">
+                <div class="col-md-4 mb-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>手機點餐</h3>
+                    <p>透過LINE輕鬆點餐，無需下載額外APP</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3>節省時間</h3>
+                    <p>提前點餐，減少等待時間</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                    <h3>外帶外送</h3>
+                    <p>提供外帶與外送服務，美食輕鬆享</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 菜單區域 -->
+    <section id="menu" class="py-5 bg-light">
+        <div class="container">
+            <h2 class="text-center mb-5">我們的菜單</h2>
+            
+            {% for category_id, category_data in menu.items() %}
+            <div class="menu-category">
+                <img src="{{ category_data['items'][list(category_data['items'].keys())[0]]['image'] }}" alt="{{ category_data['name'] }}">
+                <div class="menu-category-content">
+                    <h3>{{ category_data['name'] }}</h3>
+                    {% for item_name, item_data in category_data['items'].items() %}
+                    <div class="menu-item d-flex justify-content-between">
+                        <div>
+                            <h5 class="mb-0">{{ item_name }}</h5>
+                            <p class="mb-0 text-muted small">{{ item_data['desc'] }}</p>
+                        </div>
+                        <div class="price">${{ item_data['price'] }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- QR Code區域 -->
+    <section class="qr-section">
+        <div class="container">
+            <h2 class="text-center mb-4">開始點餐</h2>
+            <p class="text-center mb-4">掃描下方QR Code，加入我們的LINE點餐系統</p>
+            
+            <div class="qr-code">
+                <!-- 這裡放置您的LINE官方帳號QR Code -->
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://line.me/R/ti/p/%40example" alt="LINE QR Code" class="img-fluid">
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="https://line.me/R/ti/p/%40example" class="btn btn-primary">
+                    <i class="fab fa-line me-2"></i>加入LINE點餐
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 頁尾 -->
+    <footer class="bg-dark text-white py-4">
+        <div class="container text-center">
+            <p>&copy; 2023 美食點餐系統. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
