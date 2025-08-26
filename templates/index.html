@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>美食點餐系統</title>
+    <title>美味漢堡餐廳 - 線上點餐系統</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-color: #ff6b6b;
             --secondary-color: #4ecdc4;
             --dark-color: #1a1a2e;
             --light-color: #f8f9fa;
+            --accent-color: #ffd166;
         }
         
         body {
@@ -22,93 +24,276 @@
         
         .navbar {
             background-color: var(--primary-color);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
         }
         
         .hero-section {
-            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1551782450-a2132b4ba21d');
             background-size: cover;
             background-position: center;
             color: white;
-            padding: 100px 0;
+            padding: 120px 0;
             text-align: center;
         }
         
-        .menu-category {
-            margin-bottom: 30px;
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            transition: transform 0.3s;
+        .hero-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
         }
         
-        .menu-category:hover {
-            transform: translateY(-5px);
-        }
-        
-        .menu-category img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-        }
-        
-        .menu-category-content {
-            padding: 20px;
-        }
-        
-        .menu-category h3 {
-            color: var(--primary-color);
-            margin-bottom: 15px;
-        }
-        
-        .menu-item {
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .menu-item:last-child {
-            border-bottom: none;
-        }
-        
-        .price {
-            color: var(--primary-color);
-            font-weight: bold;
-        }
-        
-        .qr-section {
-            background-color: white;
-            padding: 50px 0;
-            text-align: center;
-        }
-        
-        .qr-code {
-            max-width: 250px;
-            margin: 0 auto;
+        .hero-subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
         }
         
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
+            padding: 12px 30px;
+            font-weight: 500;
+            border-radius: 50px;
+            transition: all 0.3s;
         }
         
         .btn-primary:hover {
             background-color: #e55c5c;
             border-color: #e55c5c;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255,107,107,0.3);
+        }
+        
+        .feature-section {
+            padding: 80px 0;
         }
         
         .feature-icon {
             font-size: 2.5rem;
             color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        .feature-title {
+            font-weight: 600;
             margin-bottom: 15px;
+        }
+        
+        .menu-section {
+            padding: 80px 0;
+            background-color: white;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 50px;
+            font-weight: 700;
+            color: var(--dark-color);
+            position: relative;
+        }
+        
+        .section-title:after {
+            content: '';
+            display: block;
+            width: 80px;
+            height: 4px;
+            background-color: var(--primary-color);
+            margin: 15px auto 0;
+            border-radius: 2px;
+        }
+        
+        .menu-card {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            height: 100%;
+        }
+        
+        .menu-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        
+        .menu-card img {
+            height: 200px;
+            object-fit: cover;
+        }
+        
+        .menu-card-body {
+            padding: 20px;
+        }
+        
+        .menu-card-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .menu-card-desc {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .menu-card-price {
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        
+        .menu-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: var(--accent-color);
+            color: var(--dark-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        
+        .how-it-works {
+            padding: 80px 0;
+            background-color: #f8f9fa;
+        }
+        
+        .step-card {
+            text-align: center;
+            padding: 30px;
+            border-radius: 15px;
+            background-color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            height: 100%;
+        }
+        
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin: 0 auto 20px;
+            font-size: 1.2rem;
+        }
+        
+        .testimonials {
+            padding: 80px 0;
+            background-color: white;
+        }
+        
+        .testimonial-card {
+            background-color: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 15px;
+            position: relative;
+        }
+        
+        .testimonial-text {
+            font-style: italic;
+            margin-bottom: 20px;
+        }
+        
+        .testimonial-author {
+            font-weight: 600;
+        }
+        
+        .testimonial-rating {
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+        
+        .qr-section {
+            padding: 80px 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            text-align: center;
+        }
+        
+        .qr-title {
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+        
+        .qr-code {
+            max-width: 250px;
+            margin: 0 auto 30px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .footer {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 60px 0 30px;
+        }
+        
+        .footer-title {
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: white;
+        }
+        
+        .footer-links a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 10px;
+            transition: color 0.3s;
+        }
+        
+        .footer-links a:hover {
+            color: white;
+        }
+        
+        .social-links a {
+            color: white;
+            font-size: 1.5rem;
+            margin-right: 15px;
+            transition: color 0.3s;
+        }
+        
+        .social-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        .copyright {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2.2rem;
+            }
+            
+            .hero-subtitle {
+                font-size: 1rem;
+            }
         }
     </style>
 </head>
 <body>
     <!-- 導航欄 -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
             <a class="navbar-brand" href="#">
-                <i class="fas fa-utensils me-2"></i>美食點餐系統
+                <i class="fas fa-hamburger me-2"></i>美味漢堡
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -122,10 +307,16 @@
                         <a class="nav-link" href="#menu">菜單</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#about">關於我們</a>
+                        <a class="nav-link" href="#how-it-works">如何使用</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#testimonials">顧客評價</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#contact">聯絡我們</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/login">管理後台</a>
                     </li>
                 </ul>
             </div>
@@ -135,89 +326,254 @@
     <!-- 英雄區域 -->
     <section class="hero-section">
         <div class="container">
-            <h1 class="display-4 fw-bold">美食點餐系統</h1>
-            <p class="lead">使用LINE快速點餐，享受便捷的美食體驗</p>
-            <a href="#menu" class="btn btn-primary btn-lg mt-3">查看菜單</a>
+            <h1 class="hero-title">美味漢堡餐廳</h1>
+            <p class="hero-subtitle">使用LINE輕鬆點餐，享受便捷的美食體驗</p>
+            <a href="#qr-code" class="btn btn-primary btn-lg">
+                <i class="fab fa-line me-2"></i>開始點餐
+            </a>
         </div>
     </section>
 
     <!-- 功能特色 -->
-    <section class="py-5">
+    <section class="feature-section">
         <div class="container">
             <div class="row text-center">
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-5">
                     <div class="feature-icon">
                         <i class="fas fa-mobile-alt"></i>
                     </div>
-                    <h3>手機點餐</h3>
-                    <p>透過LINE輕鬆點餐，無需下載額外APP</p>
+                    <h3 class="feature-title">手機點餐</h3>
+                    <p>透過LINE輕鬆點餐，無需下載額外APP，節省手機空間</p>
                 </div>
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-5">
                     <div class="feature-icon">
                         <i class="fas fa-clock"></i>
                     </div>
-                    <h3>節省時間</h3>
-                    <p>提前點餐，減少等待時間</p>
+                    <h3 class="feature-title">節省時間</h3>
+                    <p>提前點餐，減少等待時間，到店即可取餐</p>
                 </div>
-                <div class="col-md-4 mb-4">
+                <div class="col-md-4 mb-5">
                     <div class="feature-icon">
                         <i class="fas fa-truck"></i>
                     </div>
-                    <h3>外帶外送</h3>
-                    <p>提供外帶與外送服務，美食輕鬆享</p>
+                    <h3 class="feature-title">外帶外送</h3>
+                    <p>提供外帶與外送服務，美食輕鬆享，免出門也能享用</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- 菜單區域 -->
-    <section id="menu" class="py-5 bg-light">
+    <section id="menu" class="menu-section">
         <div class="container">
-            <h2 class="text-center mb-5">我們的菜單</h2>
+            <h2 class="section-title">人氣餐點</h2>
             
-            {% for category_id, category_data in menu.items() %}
-            <div class="menu-category">
-                <img src="{{ category_data['items'][list(category_data['items'].keys())[0]]['image'] }}" alt="{{ category_data['name'] }}">
-                <div class="menu-category-content">
-                    <h3>{{ category_data['name'] }}</h3>
-                    {% for item_name, item_data in category_data['items'].items() %}
-                    <div class="menu-item d-flex justify-content-between">
-                        <div>
-                            <h5 class="mb-0">{{ item_name }}</h5>
-                            <p class="mb-0 text-muted small">{{ item_data['desc'] }}</p>
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="menu-card">
+                        <div class="position-relative">
+                            <img src="https://images.unsplash.com/photo-1551782450-a2132b4ba21d" class="card-img-top" alt="經典牛肉漢堡">
+                            <div class="menu-badge">熱賣商品</div>
                         </div>
-                        <div class="price">${{ item_data['price'] }}</div>
+                        <div class="menu-card-body">
+                            <h5 class="menu-card-title">經典牛肉漢堡</h5>
+                            <p class="menu-card-desc">100%澳洲牛肉，新鮮生菜，特製醬料，美味無法擋</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="menu-card-price">$120</span>
+                                <button class="btn btn-sm btn-outline-primary">加入購物車</button>
+                            </div>
+                        </div>
                     </div>
-                    {% endfor %}
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="menu-card">
+                        <div class="position-relative">
+                            <img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38" class="card-img-top" alt="豪華套餐">
+                            <div class="menu-badge">超值套餐</div>
+                        </div>
+                        <div class="menu-card-body">
+                            <h5 class="menu-card-title">豪華套餐</h5>
+                            <p class="menu-card-desc">漢堡+薯條+可樂+甜點，一次滿足所有渴望</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="menu-card-price">$199</span>
+                                <button class="btn btn-sm btn-outline-primary">加入購物車</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="menu-card">
+                        <img src="https://images.unsplash.com/photo-1570197788417-0e82375c9371" class="card-img-top" alt="巧克力聖代">
+                        <div class="menu-card-body">
+                            <h5 class="menu-card-title">巧克力聖代</h5>
+                            <p class="menu-card-desc">香濃巧克力，冰淇淋，鮮奶油，完美甜點選擇</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="menu-card-price">$80</span>
+                                <button class="btn btn-sm btn-outline-primary">加入購物車</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            {% endfor %}
+            
+            <div class="text-center mt-4">
+                <a href="#qr-code" class="btn btn-primary">查看完整菜單</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 使用流程 -->
+    <section id="how-it-works" class="how-it-works">
+        <div class="container">
+            <h2 class="section-title">如何使用</h2>
+            
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <h4>掃描QR Code</h4>
+                        <p>使用LINE掃描QR Code，加入我們的官方帳號</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <h4>瀏覽菜單</h4>
+                        <p>查看我們的完整菜單，選擇您喜愛的餐點</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <h4>加入購物車</h4>
+                        <p>將餐點加入購物車，可以隨時查看和修改</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-4">
+                    <div class="step-card">
+                        <div class="step-number">4</div>
+                        <h4>完成訂單</h4>
+                        <p>確認訂單並付款，等待取餐或外送</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 顧客評價 -->
+    <section id="testimonials" class="testimonials">
+        <div class="container">
+            <h2 class="section-title">顧客評價</h2>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="testimonial-card">
+                        <div class="testimonial-rating">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p class="testimonial-text">"使用LINE點餐超級方便，節省了很多排隊時間，漢堡也非常美味！"</p>
+                        <p class="testimonial-author">- 王先生</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="testimonial-card">
+                        <div class="testimonial-rating">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p class="testimonial-text">"推薦他們的豪華套餐，CP值超高，飲料和甜點都很棒！"</p>
+                        <p class="testimonial-author">- 李小姐</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="testimonial-card">
+                        <div class="testimonial-rating">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star-half-alt"></i>
+                        </div>
+                        <p class="testimonial-text">"外送服務很準時，食物保持得很好，會繼續使用他們的服務。"</p>
+                        <p class="testimonial-author">- 張先生</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
     <!-- QR Code區域 -->
-    <section class="qr-section">
+    <section id="qr-code" class="qr-section">
         <div class="container">
-            <h2 class="text-center mb-4">開始點餐</h2>
-            <p class="text-center mb-4">掃描下方QR Code，加入我們的LINE點餐系統</p>
+            <h2 class="qr-title">立即開始點餐</h2>
             
             <div class="qr-code">
-                <!-- 這裡放置您的LINE官方帳號QR Code -->
                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://line.me/R/ti/p/%40example" alt="LINE QR Code" class="img-fluid">
             </div>
             
-            <div class="text-center mt-4">
-                <a href="https://line.me/R/ti/p/%40example" class="btn btn-primary">
+            <p>掃描QR Code加入我們的LINE點餐系統</p>
+            
+            <div class="mt-4">
+                <a href="https://line.me/R/ti/p/%40example" class="btn btn-light me-3">
                     <i class="fab fa-line me-2"></i>加入LINE點餐
+                </a>
+                <a href="#menu" class="btn btn-outline-light">
+                    <i class="fas fa-utensils me-2"></i>瀏覽菜單
                 </a>
             </div>
         </div>
     </section>
 
     <!-- 頁尾 -->
-    <footer class="bg-dark text-white py-4">
-        <div class="container text-center">
-            <p>&copy; 2023 美食點餐系統. All rights reserved.</p>
+    <footer id="contact" class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h4 class="footer-title">美味漢堡餐廳</h4>
+                    <p>提供最美味的手工漢堡與最便捷的點餐體驗</p>
+                    <div class="social-links">
+                        <a href="#"><i class="fab fa-facebook"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-line"></i></a>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <h4 class="footer-title">聯絡資訊</h4>
+                    <div class="footer-links">
+                        <p><i class="fas fa-map-marker-alt me-2"></i>台北市大安區忠孝東路四段123號</p>
+                        <p><i class="fas fa-phone me-2"></i>02-1234-5678</p>
+                        <p><i class="fas fa-envelope me-2"></i>contact@burger.com</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <h4 class="footer-title">營業時間</h4>
+                    <div class="footer-links">
+                        <p>週一至週四: 11:00 - 21:00</p>
+                        <p>週五至週六: 11:00 - 22:00</p>
+                        <p>週日: 11:00 - 20:00</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="copyright">
+                <p>&copy; 2023 美味漢堡餐廳. All rights reserved.</p>
+            </div>
         </div>
     </footer>
 
